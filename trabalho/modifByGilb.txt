@@ -1,0 +1,99 @@
+37,40c37
+< 
+< /*#include <conio.h>*/
+< #include <ncurses.h>
+< 
+---
+> #include <conio.h>
+50d46
+< #define STDDETAT 0.1
+55c51
+<   double valor, previousVC;			/*tensao/corrente anterior*/
+---
+>   double valor;
+59d54
+< typedef enum boolean {falso=0, verdadeiro} boolean;
+68,69d62
+< boolean needBE=falso;
+< 
+79d71
+< 
+83,85c75,76
+< 	deltaT=STDDETAT,
+< 	g,
+< 	Yn[MAX_NOS+1][MAX_NOS+2];
+---
+>   g,
+>   Yn[MAX_NOS+1][MAX_NOS+2];
+151c142
+<   /*clrscr();*/system("cls");
+---
+>   clrscr();
+200,206d190
+< 	else if (tipo=='C' || tipo=='L'){
+< 		if (!needBE) needBE=verdadeiro;
+< 		sscanf(p,"%10s%10s%lg%lg",na,nb,&netlist[ne].valor,&netlist[ne].previousVC);
+<       printf("%s %s %s %g %g\n",netlist[ne].nome,na,nb,netlist[ne].valor,netlist[ne].previousVC);
+< 		netlist[ne].a=numero(na);
+< 		netlist[ne].b=numero(nb);
+< 	}
+230c214
+<     if (tipo=='V' || tipo=='E' || tipo=='F' || tipo=='O' || tipo=='L') {
+---
+>     if (tipo=='V' || tipo=='E' || tipo=='F' || tipo=='O') {
+264,268d247
+< 
+< 	else if (tipo=='C' || tipo=='L'){ 
+< 	printf("%s %d %d %g %g\n",netlist[ne].nome,netlist[i].a,netlist[i].b,
+< 	netlist[i].valor,netlist[i].previousVC);
+< 	}
+275c254
+<     if (tipo=='V' || tipo=='E' || tipo=='F' || tipo=='O' || tipo=='L')
+---
+>     if (tipo=='V' || tipo=='E' || tipo=='F' || tipo=='O')
+292,305c271,277
+<     if (tipo=='R',tipo=='C') {
+< 		if (tipo=='R')
+< 			g=1/netlist[i].valor;
+< 		else
+< 			g=deltaT/netlist[i].valor;
+< 		Yn[netlist[i].a][netlist[i].a]+=g;
+< 		Yn[netlist[i].b][netlist[i].b]+=g;
+< 		Yn[netlist[i].a][netlist[i].b]-=g;
+< 		Yn[netlist[i].b][netlist[i].a]-=g;
+< 		if (tipo=='C'){
+< 			g=netlist[i].previousVC/g;
+< 	 		goto insertCur;
+< 		}
+< 	}
+---
+>     if (tipo=='R') {
+>       g=1/netlist[i].valor;
+>       Yn[netlist[i].a][netlist[i].a]+=g;
+>       Yn[netlist[i].b][netlist[i].b]+=g;
+>       Yn[netlist[i].a][netlist[i].b]-=g;
+>       Yn[netlist[i].b][netlist[i].a]-=g;
+>     }
+315,317c287,288
+< 		insertCur:
+< 			Yn[netlist[i].a][nv+1]-=g;
+< 			Yn[netlist[i].b][nv+1]+=g;
+---
+>       Yn[netlist[i].a][nv+1]-=g;
+>       Yn[netlist[i].b][nv+1]+=g;
+319c290
+<     else if (tipo=='V' || tipo=='L') {
+---
+>     else if (tipo=='V') {
+324,330c295
+< 		if (tipo=='V')
+< 			Yn[netlist[i].x][nv+1]-=netlist[i].valor;
+< 		else{
+< 			g=netlist[i].valor/deltaT;
+< 			Yn[netlist[i].x][nv+1]=g;
+< 			Yn[netlist[i].x][netlist[i].x]=g*netlist[i].previousVC;
+< 		}
+---
+>       Yn[netlist[i].x][nv+1]-=netlist[i].valor;
+405a371
+> 
