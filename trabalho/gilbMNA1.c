@@ -48,13 +48,19 @@ Os nos podem ser nomes
 #define MAX_NOS 100
 #define TOLG 1e-9
 #define STDDETAT 0.1
-#define DEBUG
+#define NUMINTER 20
+/*#define DEBUG*/
 
 typedef struct elemento { /* Elemento do netlist */
-  char nome[MAX_NOME];
-  double valor, previousVC;			/*tensao/corrente anterior*/
-  int a,b,c,d,x,y;
+	char nome[MAX_NOME];
+	double valor, previousVC;			/*tensao/corrente anterior*/
+	int a,b,c,d,x,y;
 } elemento;
+
+typedef struct listCell{
+	int elNE;					/*guarda o numero do elemente variante no tempo*/
+	struct listCell *next;
+} listCell;
 
 typedef enum boolean {falso=0, verdadeiro} boolean;
 elemento netlist[MAX_ELEM+1]; /* Netlist */
@@ -148,6 +154,10 @@ int numero(char *nome)
 
 int main(int argc, char* argv[])
 {
+	int iTemp=0;											/*guarda o numero de interacoes no tempo*/
+	listCell *first;
+	first=(listCell *) NULL;
+
   /*clrscr();*/system("cls");
   printf("Programa demonstrativo de analise nodal modificada\n");
   printf("Por Antonio Carlos M. de Queiroz - acmq@coe.ufrj.br\n");
@@ -199,8 +209,19 @@ int main(int argc, char* argv[])
     }
 	else if (tipo=='C' || tipo=='L'){
 		if (!needBE) needBE=verdadeiro;
+		listCell *cur;
+		cur = (listCell *) malloc(sizeof(listCell));
+		(*cur).elNE=ne;
+		(*cur).next= (listCell *) NULL;
+		if (!first) first=cur;
+		else{
+			listCell *aux;
+			aux=first;
+			while((*aux).next) aux=(*aux).next;
+			(*aux).next=cur;
+		}
 		sscanf(p,"%10s%10s%lg%lg",na,nb,&netlist[ne].valor,&netlist[ne].previousVC);
-      printf("%s %s %s %g %g\n",netlist[ne].nome,na,nb,netlist[ne].valor,netlist[ne].previousVC);
+		printf("%s %s %s %g %g\n",netlist[ne].nome,na,nb,netlist[ne].valor,netlist[ne].previousVC);
 		netlist[ne].a=numero(na);
 		netlist[ne].b=numero(nb);
 	}
@@ -281,6 +302,8 @@ int main(int argc, char* argv[])
   /* Monta o sistema nodal modificado */
   printf("O circuito tem %d nos, %d variaveis e %d elementos\n",nn,nv,ne);
   getch();
+
+	buildSys:
   /* Zera sistema */
   for (i=0; i<=nv; i++) {
     for (j=0; j<=nv+1; j++)
@@ -289,7 +312,7 @@ int main(int argc, char* argv[])
   /* Monta estampas */
   for (i=1; i<=ne; i++) {
     tipo=netlist[i].nome[0];
-    if (tipo=='R',tipo=='C') {
+    if (tipo=='R' || tipo=='C') {
 		if (tipo=='R')
 			g=1/netlist[i].valor;
 		else
@@ -299,7 +322,7 @@ int main(int argc, char* argv[])
 		Yn[netlist[i].a][netlist[i].b]-=g;
 		Yn[netlist[i].b][netlist[i].a]-=g;
 		if (tipo=='C'){
-			g=netlist[i].previousVC/g;
+			g=-(netlist[i].previousVC/g);	/*verificar*/
 	 		goto insertCur;
 		}
 	}
@@ -325,8 +348,8 @@ int main(int argc, char* argv[])
 			Yn[netlist[i].x][nv+1]-=netlist[i].valor;
 		else{
 			g=netlist[i].valor/deltaT;
-			Yn[netlist[i].x][nv+1]=g;
-			Yn[netlist[i].x][netlist[i].x]=g*netlist[i].previousVC;
+			Yn[netlist[i].x][netlist[i].x]+=g;
+			Yn[netlist[i].x][nv+1]+=g*netlist[i].previousVC;	/*verificar*/
 		}
     }
     else if (tipo=='E') {
@@ -394,12 +417,38 @@ int main(int argc, char* argv[])
   getch();
 #endif
   /* Mostra solucao */
-  printf("Solucao:\n");
+	if (needBE)
+		printf("\nSolucao(#%i):\n", ++iTemp);
+	else
+		printf("\nSolucao:\n");
   strcpy(txt,"Tensao");
   for (i=1; i<=nv; i++) {
     if (i==nn+1) strcpy(txt,"Corrente");
     printf("%s %s: %g\n",txt,lista[i],Yn[i][nv+1]);
   }
   getch();
+	if (needBE)
+		if (iTemp<NUMINTER){
+			listCell *cur;
+			cur=first;
+			while (cur){
+				if (netlist[(*cur).elNE].nome[0]=='C')
+					netlist[(*cur).elNE].previousVC=Yn[netlist[(*cur).elNE].a][nv+1]-Yn[netlist[(*cur).elNE].b][nv+1];
+				else
+					netlist[(*cur).elNE].previousVC=Yn[netlist[(*cur).elNE].x][nv+1];
+				cur=(*cur).next;
+			}
+			goto buildSys;
+		}
+		else
+		{
+			listCell *cur,*aux;
+			cur=first;
+			while(cur){
+				aux=(*cur).next;
+				free(cur);
+				cur=aux;
+			}
+		}
   return 0;
 }
