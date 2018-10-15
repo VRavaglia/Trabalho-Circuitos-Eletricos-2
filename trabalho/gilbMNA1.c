@@ -28,8 +28,8 @@ Fonte V:   V<nome> <vo+> <vo-> <tensao>
 Amp. op.:  O<nome> <vo1> <vo2> <vi1> <vi2>
 Capacitor: C<nome> <no+> <no-> <capacitancia> <tensao-inicial>
 Indutor:   L<nome> <no+> <no-> <indutancia> <corrente-inicial>
-Fonte VS.:  SV<nome> <vo+> <vo-> <Vmax> <frequencia> <fase-em-radianos>
-Fonte IS.:  SI<nome> <io+> <io-> <Imax> <frequencia> <fase-em-radianos>
+Fonte VS.:  SV<nome> <vo+> <vo-> <Vmax> <frequencia> <fase-em-radianos> <offset>
+Fonte IS.:  SI<nome> <io+> <io-> <Imax> <frequencia> <fase-em-radianos> <offset>
 
 As fontes F e H tem o ramo de entrada em curto
 O amplificador operacional ideal tem a saida suspensa
@@ -58,7 +58,7 @@ Os nos podem ser nomes
 
 typedef struct elemento { /* Elemento do netlist */
 	char nome[MAX_NOME];
-	double valor, previousVC,			/*tensao/corrente anterior*/
+	double valor, preOoffVC,			/*tensao/corrente anterior ou offset*/
 	freq, phase;							/*respectivamente frequencia e fase*/
 	int a,b,c,d,x,y;
 } elemento;
@@ -207,8 +207,8 @@ int main(int argc, char* argv[])
       netlist[ne].b=numero(nb);
     }
 	else if (tipo=='S'){
-		sscanf(p, "%10s%10s%lg%lg%lg",na,nb,&netlist[ne].valor,
-				&netlist[ne].freq,&netlist[ne].phase);
+		sscanf(p, "%10s%10s%lg%lg%lg%lg",na,nb,&netlist[ne].valor,
+				&netlist[ne].freq,&netlist[ne].phase,&netlist[ne].preOoffVC);
 		printf("%s %s %s %g %g %g\n", netlist[ne].nome,na,nb,netlist[ne].valor,
 				netlist[ne].freq,netlist[ne].phase);
 		netlist[ne].a=numero(na);
@@ -235,8 +235,8 @@ int main(int argc, char* argv[])
 			while((*aux).next) aux=(*aux).next;
 			(*aux).next=cur;
 		}
-		sscanf(p,"%10s%10s%lg%lg",na,nb,&netlist[ne].valor,&netlist[ne].previousVC);
-		printf("%s %s %s %g %g\n",netlist[ne].nome,na,nb,netlist[ne].valor,netlist[ne].previousVC);
+		sscanf(p,"%10s%10s%lg%lg",na,nb,&netlist[ne].valor,&netlist[ne].preOoffVC);
+		printf("%s %s %s %g %g\n",netlist[ne].nome,na,nb,netlist[ne].valor,netlist[ne].preOoffVC);
 		netlist[ne].a=numero(na);
 		netlist[ne].b=numero(nb);
 	}
@@ -304,7 +304,7 @@ int main(int argc, char* argv[])
 
 	else if (tipo=='C' || tipo=='L'){ 
 	printf("%s %d %d %g %g\n",netlist[ne].nome,netlist[i].a,netlist[i].b,
-	netlist[i].valor,netlist[i].previousVC);
+	netlist[i].valor,netlist[i].preOoffVC);
 	}
     else if (tipo=='G' || tipo=='E' || tipo=='F' || tipo=='H') {
       printf("%s %d %d %d %d %g\n",netlist[i].nome,netlist[i].a,netlist[i].b,netlist[i].c,netlist[i].d,netlist[i].valor);
@@ -342,7 +342,7 @@ int main(int argc, char* argv[])
 		Yn[netlist[i].a][netlist[i].b]-=g;
 		Yn[netlist[i].b][netlist[i].a]-=g;
 		if (tipo=='C'){
-			g=-(netlist[i].previousVC/g);	/*verificar*/
+			g=-(netlist[i].preOoffVC/g);	/*verificar*/
 	 		goto insertCur;
 		}
 	}
@@ -368,7 +368,7 @@ int main(int argc, char* argv[])
 		else{
 			g=netlist[i].valor/deltaT;
 			Yn[netlist[i].x][netlist[i].x]+=g;
-			Yn[netlist[i].x][nv+1]+=g*netlist[i].previousVC;	/*verificar*/
+			Yn[netlist[i].x][nv+1]+=g*netlist[i].preOoffVC;	/*verificar*/
 		}
       Yn[netlist[i].a][netlist[i].x]+=1;
       Yn[netlist[i].b][netlist[i].x]-=1;
@@ -376,7 +376,8 @@ int main(int argc, char* argv[])
       Yn[netlist[i].x][netlist[i].b]+=1;
     }
 	else if (tipo=='S'){
-		g= netlist[i].valor*sin((2*PI*(netlist[i].freq)*time)-(netlist[i].phase));
+		g= netlist[i].valor*sin((2*PI*(netlist[i].freq)*time)-(netlist[i].phase))
+			+netlist[i].preOoffVC;
 		if (netlist[i].nome[1]=='V')
 			goto insertVolt;
 		else
@@ -465,9 +466,9 @@ int main(int argc, char* argv[])
 			cur=first;
 			while (cur){
 				if (netlist[(*cur).elNE].nome[0]=='C')
-					netlist[(*cur).elNE].previousVC=Yn[netlist[(*cur).elNE].a][nv+1]-Yn[netlist[(*cur).elNE].b][nv+1];
+					netlist[(*cur).elNE].preOoffVC=Yn[netlist[(*cur).elNE].a][nv+1]-Yn[netlist[(*cur).elNE].b][nv+1];
 				else
-					netlist[(*cur).elNE].previousVC=Yn[netlist[(*cur).elNE].x][nv+1];
+					netlist[(*cur).elNE].preOoffVC=Yn[netlist[(*cur).elNE].x][nv+1];
 				cur=(*cur).next;
 			}
 			goto buildSys;
