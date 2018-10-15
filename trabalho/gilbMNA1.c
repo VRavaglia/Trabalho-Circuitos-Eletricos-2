@@ -26,6 +26,10 @@ CCVS:      H<nome> <vo+> <vo-> <ii+> <ii-> <transresistencia>
 Fonte I:   I<nome> <io+> <io-> <corrente>
 Fonte V:   V<nome> <vo+> <vo-> <tensao>
 Amp. op.:  O<nome> <vo1> <vo2> <vi1> <vi2>
+Capacitor: C<nome> <no+> <no-> <capacitancia> <tensao-inicial>
+Indutor:   L<nome> <no+> <no-> <indutancia> <corrente-inicial>
+Fonte VS.:  SV<nome> <vo+> <vo-> <Vmax> <frequencia> <fase-em-radianos>
+Fonte IS.:  SI<nome> <io+> <io-> <Imax> <frequencia> <fase-em-radianos>
 
 As fontes F e H tem o ramo de entrada em curto
 O amplificador operacional ideal tem a saida suspensa
@@ -49,11 +53,13 @@ Os nos podem ser nomes
 #define TOLG 1e-9
 #define STDDETAT 0.1
 #define NUMINTER 20
+#define PI 3.14159265
 /*#define DEBUG*/
 
 typedef struct elemento { /* Elemento do netlist */
 	char nome[MAX_NOME];
-	double valor, previousVC;			/*tensao/corrente anterior*/
+	double valor, previousVC,			/*tensao/corrente anterior*/
+	freq, phase;							/*respectivamente frequencia e fase*/
 	int a,b,c,d,x,y;
 } elemento;
 
@@ -155,6 +161,7 @@ int numero(char *nome)
 int main(int argc, char* argv[])
 {
 	int iTemp=0;											/*guarda o numero de interacoes no tempo*/
+	double time=-(STDDETAT);
 	listCell *first;
 	first=(listCell *) NULL;
 
@@ -199,6 +206,14 @@ int main(int argc, char* argv[])
       netlist[ne].a=numero(na);
       netlist[ne].b=numero(nb);
     }
+	else if (tipo=='S'){
+		sscanf(p, "%10s%10s%lg%lg%lg",na,nb,&netlist[ne].valor,
+				&netlist[ne].freq,&netlist[ne].phase);
+		printf("%s %s %s %g %g %g\n", netlist[ne].nome,na,nb,netlist[ne].valor,
+				netlist[ne].freq,netlist[ne].phase);
+		netlist[ne].a=numero(na);
+		netlist[ne].b=numero(nb);
+	}
     else if (tipo=='G' || tipo=='E' || tipo=='F' || tipo=='H') {
       sscanf(p,"%10s%10s%10s%10s%lg",na,nb,nc,nd,&netlist[ne].valor);
       printf("%s %s %s %s %s %g\n",netlist[ne].nome,na,nb,nc,nd,netlist[ne].valor);
@@ -248,7 +263,10 @@ int main(int argc, char* argv[])
   nn=nv;
   for (i=1; i<=ne; i++) {
     tipo=netlist[i].nome[0];
-    if (tipo=='V' || tipo=='E' || tipo=='F' || tipo=='O' || tipo=='L') {
+    if (tipo=='V' || tipo=='E' || tipo=='F' || tipo=='O' || tipo=='L' ||
+			tipo=='S') {
+		if ((tipo=='S') && (netlist[i].nome[1]=='I')) goto itsCur; /*pq nao
+																	pensei em uma sol melhor*/
       nv++;
       if (nv>MAX_NOS) {
         printf("As correntes extra excederam o numero de variaveis permitido (%d)\n",MAX_NOS);
@@ -270,6 +288,7 @@ int main(int argc, char* argv[])
       netlist[i].y=nv;
     }
   }
+	itsCur:
   getch();
   /* Lista tudo */
   printf("Variaveis internas: \n");
@@ -304,6 +323,7 @@ int main(int argc, char* argv[])
   getch();
 
 	buildSys:
+	time+=STDDETAT;
   /* Zera sistema */
   for (i=0; i<=nv; i++) {
     for (j=0; j<=nv+1; j++)
@@ -340,18 +360,28 @@ int main(int argc, char* argv[])
 			Yn[netlist[i].b][nv+1]+=g;
     }
     else if (tipo=='V' || tipo=='L') {
-      Yn[netlist[i].a][netlist[i].x]+=1;
-      Yn[netlist[i].b][netlist[i].x]-=1;
-      Yn[netlist[i].x][netlist[i].a]-=1;
-      Yn[netlist[i].x][netlist[i].b]+=1;
-		if (tipo=='V')
-			Yn[netlist[i].x][nv+1]-=netlist[i].valor;
+		if (tipo=='V'){
+			g=netlist[i].valor;
+			insertVolt:
+				Yn[netlist[i].x][nv+1]-=g;
+		}
 		else{
 			g=netlist[i].valor/deltaT;
 			Yn[netlist[i].x][netlist[i].x]+=g;
 			Yn[netlist[i].x][nv+1]+=g*netlist[i].previousVC;	/*verificar*/
 		}
+      Yn[netlist[i].a][netlist[i].x]+=1;
+      Yn[netlist[i].b][netlist[i].x]-=1;
+      Yn[netlist[i].x][netlist[i].a]-=1;
+      Yn[netlist[i].x][netlist[i].b]+=1;
     }
+	else if (tipo=='S'){
+		g= netlist[i].valor*sin((2*PI*(netlist[i].freq)*time)-(netlist[i].phase));
+		if (netlist[i].nome[1]=='V')
+			goto insertVolt;
+		else
+			goto insertCur;
+	}
     else if (tipo=='E') {
       g=netlist[i].valor;
       Yn[netlist[i].a][netlist[i].x]+=1;
@@ -417,8 +447,10 @@ int main(int argc, char* argv[])
   getch();
 #endif
   /* Mostra solucao */
-	if (needBE)
+	if (needBE){
 		printf("\nSolucao(#%i):\n", ++iTemp);
+		printf("t=%g\n", time);
+	}
 	else
 		printf("\nSolucao:\n");
   strcpy(txt,"Tensao");
