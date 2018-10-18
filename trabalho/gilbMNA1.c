@@ -56,19 +56,28 @@ Os nos podem ser nomes
 #define PI 3.14159265
 /*#define DEBUG*/
 
+typedef enum boolean {falso=0, verdadeiro} boolean;
+
 typedef struct elemento { /* Elemento do netlist */
 	char nome[MAX_NOME];
-	double valor, preOoffVC,			/*tensao/corrente anterior ou offset*/
-	freq, phase;							/*respectivamente frequencia e fase*/
+	double valor, preOoffOminVC,			/*V/I anterior/offset/minimo*/
+	freqOPer, phaseOtin,	/*respectivamente frequencia/periodoe fase/t inicial*/
+	dTsub, dTdes, dtSteady;	/*tempos de subida, descida e "parado" respectivamente*/
 	int a,b,c,d,x,y;
 } elemento;
 
-typedef struct listCell{
+typedef struct tVarCell{
 	int elNE;					/*guarda o numero do elemente variante no tempo*/
-	struct listCell *next;
-} listCell;
+	struct tVarCell *next;
+} tVarCell;
 
-typedef enum boolean {falso=0, verdadeiro} boolean;
+typedef struct dDCell{
+	int elNE;					/*guarda o numero da fonte que varia no tempo (nao
+										senoidal*/
+	struct dDCell *next;
+	boolean triggered;
+} dDCell;
+
 elemento netlist[MAX_ELEM+1]; /* Netlist */
 
 int
@@ -162,8 +171,11 @@ int main(int argc, char* argv[])
 {
 	int iTemp=0;											/*guarda o numero de interacoes no tempo*/
 	double time=-(STDDETAT);
-	listCell *first;
-	first=(listCell *) NULL;
+	tVarCell *first;
+	dDCell *firstD;
+
+	first=(tVarCell *) NULL;
+	firstD=(dDCell *) NULL;
 
   /*clrscr();*/system("cls");
   printf("Programa demonstrativo de analise nodal modificada\n");
@@ -208,9 +220,34 @@ int main(int argc, char* argv[])
     }
 	else if (tipo=='S'){
 		sscanf(p, "%10s%10s%lg%lg%lg%lg",na,nb,&netlist[ne].valor,
-				&netlist[ne].freq,&netlist[ne].phase,&netlist[ne].preOoffVC);
+				&netlist[ne].freqOPer,&netlist[ne].phaseOtin,&netlist[ne].preOoffOminVC);
 		printf("%s %s %s %g %g %g\n", netlist[ne].nome,na,nb,netlist[ne].valor,
-				netlist[ne].freq,netlist[ne].phase);
+				netlist[ne].freqOPer,netlist[ne].phaseOtin);
+		netlist[ne].a=numero(na);
+		netlist[ne].b=numero(nb);
+	}
+	else if (tipo=='D'){
+		if (!needBE) needBE=verdadeiro;
+		dDCell *curD;
+		curD = (dDCell *) malloc(sizeof(dDCell));
+		(*curD).elNE=ne;
+		(*curD).next= (dDCell *) NULL;
+		(*curD).triggered=falso;
+		if (!firstD) firstD=curD;
+		else{
+			dDCell *auxD;
+			auxD=firstD;
+			while((*auxD).next) auxD=(*auxD).next;
+			(*auxD).next=curD;
+		}
+		sscanf(p, "%10s%10s%lg%lg%lg%lg%lg%lg%lg",na,nb,&netlist[ne].valor,
+				&netlist[ne].freqOPer,&netlist[ne].phaseOtin,
+				&netlist[ne].preOoffOminVC,&netlist[ne].dTsub,&netlist[ne].dTdes,
+				&netlist[ne].dtSteady);
+		printf("%s %s %s %g %g %g %g %g %g %g\n", netlist[ne].nome,na,nb,
+			netlist[ne].valor,netlist[ne].freqOPer,netlist[ne].phaseOtin,
+			netlist[ne].preOoffOminVC,netlist[ne].dTsub,netlist[ne].dTdes,
+			netlist[ne].dtSteady);
 		netlist[ne].a=numero(na);
 		netlist[ne].b=numero(nb);
 	}
@@ -224,19 +261,19 @@ int main(int argc, char* argv[])
     }
 	else if (tipo=='C' || tipo=='L'){
 		if (!needBE) needBE=verdadeiro;
-		listCell *cur;
-		cur = (listCell *) malloc(sizeof(listCell));
+		tVarCell *cur;
+		cur = (tVarCell *) malloc(sizeof(tVarCell));
 		(*cur).elNE=ne;
-		(*cur).next= (listCell *) NULL;
+		(*cur).next= (tVarCell *) NULL;
 		if (!first) first=cur;
 		else{
-			listCell *aux;
+			tVarCell *aux;
 			aux=first;
 			while((*aux).next) aux=(*aux).next;
 			(*aux).next=cur;
 		}
-		sscanf(p,"%10s%10s%lg%lg",na,nb,&netlist[ne].valor,&netlist[ne].preOoffVC);
-		printf("%s %s %s %g %g\n",netlist[ne].nome,na,nb,netlist[ne].valor,netlist[ne].preOoffVC);
+		sscanf(p,"%10s%10s%lg%lg",na,nb,&netlist[ne].valor,&netlist[ne].preOoffOminVC);
+		printf("%s %s %s %g %g\n",netlist[ne].nome,na,nb,netlist[ne].valor,netlist[ne].preOoffOminVC);
 		netlist[ne].a=numero(na);
 		netlist[ne].b=numero(nb);
 	}
@@ -264,9 +301,9 @@ int main(int argc, char* argv[])
   for (i=1; i<=ne; i++) {
     tipo=netlist[i].nome[0];
     if (tipo=='V' || tipo=='E' || tipo=='F' || tipo=='O' || tipo=='L' ||
-			tipo=='S') {
-		if ((tipo=='S') && (netlist[i].nome[1]=='I')) goto itsCur; /*pq nao
-																	pensei em uma sol melhor*/
+			tipo=='S' || tipo=='D') {
+		if ((tipo=='S' || tipo=='D') && (netlist[i].nome[1]=='I'))
+			goto itsCur; /*se for corrente trata como corrente*/
       nv++;
       if (nv>MAX_NOS) {
         printf("As correntes extra excederam o numero de variaveis permitido (%d)\n",MAX_NOS);
@@ -301,19 +338,25 @@ int main(int argc, char* argv[])
     if (tipo=='R' || tipo=='I' || tipo=='V') {
       printf("%s %d %d %g\n",netlist[i].nome,netlist[i].a,netlist[i].b,netlist[i].valor);
     }
-
-	else if (tipo=='C' || tipo=='L'){ 
-	printf("%s %d %d %g %g\n",netlist[ne].nome,netlist[i].a,netlist[i].b,
-	netlist[i].valor,netlist[i].preOoffVC);
-	}
+	else if (tipo=='C' || tipo=='L')
+		printf("%s %d %d %g %g\n",netlist[ne].nome,netlist[i].a,netlist[i].b,
+				netlist[i].valor,netlist[i].preOoffOminVC);
+	else if (tipo=='S' || tipo=='D')
+		printf("%s %d %d %g %g %g %g %g %g\n",netlist[i].nome,netlist[i].a,
+				netlist[i].b,netlist[i].valor,netlist[i].freqOPer,
+				netlist[i].phaseOtin,netlist[i].dTsub,netlist[i].dTdes,
+				netlist[i].dtSteady);
     else if (tipo=='G' || tipo=='E' || tipo=='F' || tipo=='H') {
       printf("%s %d %d %d %d %g\n",netlist[i].nome,netlist[i].a,netlist[i].b,netlist[i].c,netlist[i].d,netlist[i].valor);
     }
     else if (tipo=='O') {
       printf("%s %d %d %d %d\n",netlist[i].nome,netlist[i].a,netlist[i].b,netlist[i].c,netlist[i].d);
     }
-    if (tipo=='V' || tipo=='E' || tipo=='F' || tipo=='O' || tipo=='L')
+    if (tipo=='V' || tipo=='E' || tipo=='F' || tipo=='O' || tipo=='L' ||
+			tipo=='S' || tipo=='D'){
+		if(netlist[i].nome[1]=='I') goto buildSys;
       printf("Corrente jx: %d\n",netlist[i].x);
+	}
     else if (tipo=='H')
       printf("Correntes jx e jy: %d, %d\n",netlist[i].x,netlist[i].y);
   }
@@ -324,6 +367,23 @@ int main(int argc, char* argv[])
 
 	buildSys:
 	time+=STDDETAT;
+
+	{
+		dDCell *curD, *earlier;
+		earlier = curD = (dDCell *) NULL;
+
+		if (firstD) curD=firstD;
+		while(curD){
+			if (((netlist[(*curD).elNE].phaseOtin) < time) &&
+				!((*curD).triggered)){
+					time=netlist[(*curD).elNE].phaseOtin;
+					earlier=curD;
+			}
+			curD=(*curD).next;
+		}
+		if (earlier) (*earlier).triggered=verdadeiro;
+	}
+
   /* Zera sistema */
   for (i=0; i<=nv; i++) {
     for (j=0; j<=nv+1; j++)
@@ -331,7 +391,11 @@ int main(int argc, char* argv[])
   }
   /* Monta estampas */
   for (i=1; i<=ne; i++) {
-    tipo=netlist[i].nome[0];
+
+		dDCell *curD;
+		if (firstD) curD=firstD;
+
+		tipo=netlist[i].nome[0];
     if (tipo=='R' || tipo=='C') {
 		if (tipo=='R')
 			g=1/netlist[i].valor;
@@ -342,7 +406,7 @@ int main(int argc, char* argv[])
 		Yn[netlist[i].a][netlist[i].b]-=g;
 		Yn[netlist[i].b][netlist[i].a]-=g;
 		if (tipo=='C'){
-			g=-(netlist[i].preOoffVC/g);	/*verificar*/
+			g=-(netlist[i].preOoffOminVC/g);	/*verificar*/
 	 		goto insertCur;
 		}
 	}
@@ -368,7 +432,7 @@ int main(int argc, char* argv[])
 		else{
 			g=netlist[i].valor/deltaT;
 			Yn[netlist[i].x][netlist[i].x]+=g;
-			Yn[netlist[i].x][nv+1]+=g*netlist[i].preOoffVC;	/*verificar*/
+			Yn[netlist[i].x][nv+1]+=g*netlist[i].preOoffOminVC;	/*verificar*/
 		}
       Yn[netlist[i].a][netlist[i].x]+=1;
       Yn[netlist[i].b][netlist[i].x]-=1;
@@ -376,8 +440,37 @@ int main(int argc, char* argv[])
       Yn[netlist[i].x][netlist[i].b]+=1;
     }
 	else if (tipo=='S'){
-		g= netlist[i].valor*sin((2*PI*(netlist[i].freq)*time)-(netlist[i].phase))
-			+netlist[i].preOoffVC;
+		g=netlist[i].valor*sin((2*PI*(netlist[i].freqOPer)*time)-(netlist[i].phaseOtin))+netlist[i].preOoffOminVC;
+		if (netlist[i].nome[1]=='V')
+			goto insertVolt;
+		else
+			goto insertCur;
+	}
+	else if (tipo=='D'){
+		if (i != (*curD).elNE){
+			printf("Um error interno ocorreu\n");
+			exit(1);
+		}
+		g=0;
+		if ((*curD).triggered){			/*revisar isso*/
+			if (netlist[i].phaseOtin+netlist[i].dTsub > time)
+				g=((netlist[i].valor-netlist[i].preOoffOminVC)/netlist[i].dTsub)*
+				(time-netlist[i].phaseOtin);
+			else if (netlist[i].phaseOtin+netlist[i].dTsub+netlist[i].dtSteady >=
+						time)
+				g=netlist[i].valor;
+			else if (netlist[i].phaseOtin+netlist[i].dTsub+netlist[i].dtSteady+
+						netlist[i].dTdes >= time)
+				g=((netlist[i].preOoffOminVC-netlist[i].valor)/netlist[i].dTdes)*
+				(time-(netlist[i].phaseOtin+netlist[i].dTsub+netlist[i].dtSteady));
+			else{
+				if (netlist[i].phaseOtin+netlist[i].freqOPer > time){
+					(*curD).triggered=falso;
+				}
+				netlist[i].phaseOtin=netlist[i].phaseOtin+netlist[i].freqOPer;
+			}
+			curD=(*curD).next;
+		}
 		if (netlist[i].nome[1]=='V')
 			goto insertVolt;
 		else
@@ -462,25 +555,32 @@ int main(int argc, char* argv[])
   getch();
 	if (needBE)
 		if (iTemp<NUMINTER){
-			listCell *cur;
+			tVarCell *cur;
 			cur=first;
 			while (cur){
 				if (netlist[(*cur).elNE].nome[0]=='C')
-					netlist[(*cur).elNE].preOoffVC=Yn[netlist[(*cur).elNE].a][nv+1]-Yn[netlist[(*cur).elNE].b][nv+1];
+					netlist[(*cur).elNE].preOoffOminVC=Yn[netlist[(*cur).elNE].a][nv+1]-Yn[netlist[(*cur).elNE].b][nv+1];
 				else
-					netlist[(*cur).elNE].preOoffVC=Yn[netlist[(*cur).elNE].x][nv+1];
+					netlist[(*cur).elNE].preOoffOminVC=Yn[netlist[(*cur).elNE].x][nv+1];
 				cur=(*cur).next;
 			}
 			goto buildSys;
 		}
 		else
 		{
-			listCell *cur,*aux;
+			tVarCell *cur,*aux;
 			cur=first;
 			while(cur){
 				aux=(*cur).next;
 				free(cur);
 				cur=aux;
+			}
+			dDCell *curD,*auxD;
+			curD=firstD;
+			while(curD){
+				auxD=(*curD).next;
+				free(curD);
+				curD=auxD;
 			}
 		}
   return 0;
