@@ -1,22 +1,39 @@
 #include "mainwindow.h"
-
+#include "ui_mainwindow.h"
 #include <QCoreApplication>
 #include <QFileDialog>
 #include <QDebug>
+#include <QThread>
+//#include <mna1.h>
+#include <QMessageBox>
 
 
-QString filename = "";
+void MainWindow::i_erro(QString msg_erro){
+    QMessageBox msgBox;
+    msgBox.setText("O seguinte erro ocorreu:/n/n"+msg_erro);
+    msgBox.setStandardButtons(QMessageBox::Ok);
+    msgBox.setDefaultButton(QMessageBox::Ok);
+    msgBox.exec();
+};
 
-class Arquivos : public QWidget
+void MainWindow::i_printf(const char* format, ...){
+    char buffer[1024];
+    va_list argptr;
+    va_start(argptr, format);
+    vsnprintf(buffer, 1024, format, argptr);
+    va_end(argptr);
+
+    texto_console = texto_console + buffer;
+    ui->console->setText(texto_console);
+};
+
+QString MainWindow::openFile()
 {
-public:
-  QString openFile()
-  {
     QString filename =  QFileDialog::getOpenFileName(
           this,
-          "Open Document",
+          "Selecione o arquivo de simulação:",
           QDir::currentPath(),
-          "All files (*.*) ;; Document files (*.doc *.rtf);; PNG files (*.png)");
+          "All files (*.*) ;; Document files (*.doc *.rtf)");
 
     if( !filename.isNull() )
     {
@@ -24,35 +41,24 @@ public:
       return filename;
     }
     return "";
-  }
 };
 
-MainWindow::MainWindow(QWidget *parent)
-   : QMainWindow(parent)
+
+MainWindow::MainWindow(QWidget *parent) :
+    QMainWindow(parent),
+    ui(new Ui::MainWindow)
 {
-   // Create the button, make "this" the parent
-   m_button = new QPushButton("Abrir", this);
-   // set size and location of the button
-   m_button->setGeometry(QRect(QPoint(10, 10),
-   QSize(80, 30)));
-
-
-
-   // Connect button signal to appropriate slot
-   connect(m_button, SIGNAL (released()), this, SLOT (handleButton()));
-
-
-   label = new QLabel(this);
-   label->setText("Arquivo selecionado: " + filename);
-   label->setAlignment(Qt::AlignCenter);
-   label->setGeometry(QRect(QPoint(0, 300),
-                            QSize(800, 30)));
-
+    ui->setupUi(this);
 }
 
-void MainWindow::handleButton()
+MainWindow::~MainWindow()
 {
-    Arquivos arquivos;
-    filename = arquivos.openFile();
-    label->setText("Arquivo selecionado:" + filename);
+    delete ui;
+}
+
+void MainWindow::on_b_abrir_clicked()
+{
+    auto fileName = openFile();
+
+    ui->dir->setText(fileName);
 }

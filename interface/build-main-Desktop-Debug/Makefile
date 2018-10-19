@@ -15,7 +15,7 @@ CXX           = g++
 DEFINES       = -DQT_QML_DEBUG -DQT_WIDGETS_LIB -DQT_GUI_LIB -DQT_CORE_LIB
 CFLAGS        = -pipe -g -Wall -W -D_REENTRANT -fPIC $(DEFINES)
 CXXFLAGS      = -pipe -g -Wall -W -D_REENTRANT -fPIC $(DEFINES)
-INCPATH       = -I../main -I. -isystem /usr/include/qt -isystem /usr/include/qt/QtWidgets -isystem /usr/include/qt/QtGui -isystem /usr/include/qt/QtCore -I. -isystem /usr/include/libdrm -I/usr/lib/qt/mkspecs/linux-g++
+INCPATH       = -I../main -I. -isystem /usr/include/qt -isystem /usr/include/qt/QtWidgets -isystem /usr/include/qt/QtGui -isystem /usr/include/qt/QtCore -I. -isystem /usr/include/libdrm -I. -I/usr/lib/qt/mkspecs/linux-g++
 QMAKE         = /usr/bin/qmake
 DEL_FILE      = rm -f
 CHK_DIR_EXISTS= test -d
@@ -51,9 +51,11 @@ OBJECTS_DIR   = ./
 ####### Files
 
 SOURCES       = ../main/main.cpp \
-		../main/mainwindow.cpp moc_mainwindow.cpp
+		../main/mainwindow.cpp \
+		../main/mna1.cpp moc_mainwindow.cpp
 OBJECTS       = main.o \
 		mainwindow.o \
+		mna1.o \
 		moc_mainwindow.o
 DIST          = /usr/lib/qt/mkspecs/features/spec_pre.prf \
 		/usr/lib/qt/mkspecs/common/unix.conf \
@@ -252,8 +254,10 @@ DIST          = /usr/lib/qt/mkspecs/features/spec_pre.prf \
 		/usr/lib/qt/mkspecs/features/exceptions.prf \
 		/usr/lib/qt/mkspecs/features/yacc.prf \
 		/usr/lib/qt/mkspecs/features/lex.prf \
-		../main/main.pro ../main/mainwindow.h ../main/main.cpp \
-		../main/mainwindow.cpp
+		../main/main.pro ../main/mainwindow.h \
+		../main/mna1.h ../main/main.cpp \
+		../main/mainwindow.cpp \
+		../main/mna1.cpp
 QMAKE_TARGET  = main
 DESTDIR       = 
 TARGET        = main
@@ -262,7 +266,7 @@ TARGET        = main
 first: all
 ####### Build rules
 
-$(TARGET):  $(OBJECTS)  
+$(TARGET): ui_mainwindow.h $(OBJECTS)  
 	$(LINK) $(LFLAGS) -o $(TARGET) $(OBJECTS) $(OBJCOMP) $(LIBS)
 
 Makefile: ../main/main.pro /usr/lib/qt/mkspecs/linux-g++/qmake.conf /usr/lib/qt/mkspecs/features/spec_pre.prf \
@@ -683,8 +687,9 @@ distdir: FORCE
 	@test -d $(DISTDIR) || mkdir -p $(DISTDIR)
 	$(COPY_FILE) --parents $(DIST) $(DISTDIR)/
 	$(COPY_FILE) --parents /usr/lib/qt/mkspecs/features/data/dummy.cpp $(DISTDIR)/
-	$(COPY_FILE) --parents ../main/mainwindow.h $(DISTDIR)/
-	$(COPY_FILE) --parents ../main/main.cpp ../main/mainwindow.cpp $(DISTDIR)/
+	$(COPY_FILE) --parents ../main/mainwindow.h ../main/mna1.h $(DISTDIR)/
+	$(COPY_FILE) --parents ../main/main.cpp ../main/mainwindow.cpp ../main/mna1.cpp $(DISTDIR)/
+	$(COPY_FILE) --parents ../main/mainwindow.ui $(DISTDIR)/
 
 
 clean: compiler_clean 
@@ -728,23 +733,32 @@ compiler_moc_objc_header_make_all:
 compiler_moc_objc_header_clean:
 compiler_moc_source_make_all:
 compiler_moc_source_clean:
-compiler_uic_make_all:
+compiler_uic_make_all: ui_mainwindow.h
 compiler_uic_clean:
+	-$(DEL_FILE) ui_mainwindow.h
+ui_mainwindow.h: ../main/mainwindow.ui \
+		/usr/bin/uic
+	/usr/bin/uic ../main/mainwindow.ui -o ui_mainwindow.h
+
 compiler_yacc_decl_make_all:
 compiler_yacc_decl_clean:
 compiler_yacc_impl_make_all:
 compiler_yacc_impl_clean:
 compiler_lex_make_all:
 compiler_lex_clean:
-compiler_clean: compiler_moc_predefs_clean compiler_moc_header_clean 
+compiler_clean: compiler_moc_predefs_clean compiler_moc_header_clean compiler_uic_clean 
 
 ####### Compile
 
 main.o: ../main/main.cpp ../main/mainwindow.h
 	$(CXX) -c $(CXXFLAGS) $(INCPATH) -o main.o ../main/main.cpp
 
-mainwindow.o: ../main/mainwindow.cpp ../main/mainwindow.h
+mainwindow.o: ../main/mainwindow.cpp ../main/mainwindow.h \
+		ui_mainwindow.h
 	$(CXX) -c $(CXXFLAGS) $(INCPATH) -o mainwindow.o ../main/mainwindow.cpp
+
+mna1.o: ../main/mna1.cpp 
+	$(CXX) -c $(CXXFLAGS) $(INCPATH) -o mna1.o ../main/mna1.cpp
 
 moc_mainwindow.o: moc_mainwindow.cpp 
 	$(CXX) -c $(CXXFLAGS) $(INCPATH) -o moc_mainwindow.o moc_mainwindow.cpp

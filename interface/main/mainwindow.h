@@ -4,21 +4,36 @@
 #include <QMainWindow>
 #include <QPushButton>
 #include <QLabel>
+#include <qtextbrowser.h>
 
 namespace Ui {
-   class MainWindow;
+class MainWindow;
 }
 
 class MainWindow : public QMainWindow
 {
-   Q_OBJECT
+    Q_OBJECT
+
 public:
-   explicit MainWindow(QWidget *parent = 0);
+    explicit MainWindow(QWidget *parent = nullptr);
+    ~MainWindow();
+
+    void i_printf(const char*, ...);
+    void i_erro(QString);
+
 private slots:
-   void handleButton();
+    void on_b_abrir_clicked();
+
 private:
-   QPushButton *m_button;
-   QLabel *label;
+    Ui::MainWindow *ui;
+
+    QString openFile();
+
+    /*QPushButton *b_abrir;
+    QPushButton *b_rodar;
+    QLabel *label;
+    QLabel *console;*/
+    QString texto_console;
 };
 
 #endif // MAINWINDOW_H
