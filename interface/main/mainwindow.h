@@ -20,9 +20,12 @@ public:
 
     void i_printf(const char*, ...);
     void i_erro(QString);
+    QString i_scanf(const char*, ...);
 
 private slots:
     void on_b_abrir_clicked();
+
+    void on_pushButton_2_clicked();
 
 private:
     Ui::MainWindow *ui;
@@ -34,6 +37,7 @@ private:
     QLabel *label;
     QLabel *console;*/
     QString texto_console;
+    QString filename;
 };
 
 #endif // MAINWINDOW_H

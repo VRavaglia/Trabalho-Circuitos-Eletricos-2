@@ -754,10 +754,11 @@ main.o: ../main/main.cpp ../main/mainwindow.h
 	$(CXX) -c $(CXXFLAGS) $(INCPATH) -o main.o ../main/main.cpp
 
 mainwindow.o: ../main/mainwindow.cpp ../main/mainwindow.h \
-		ui_mainwindow.h
+		ui_mainwindow.h \
+		../main/mna1.h
 	$(CXX) -c $(CXXFLAGS) $(INCPATH) -o mainwindow.o ../main/mainwindow.cpp
 
-mna1.o: ../main/mna1.cpp 
+mna1.o: ../main/mna1.cpp ../main/mainwindow.h
 	$(CXX) -c $(CXXFLAGS) $(INCPATH) -o mna1.o ../main/mna1.cpp
 
 moc_mainwindow.o: moc_mainwindow.cpp 

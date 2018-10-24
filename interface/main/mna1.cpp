@@ -170,7 +170,7 @@ int numero(char *nome, MainWindow &main_window)
   }
 }
 
-int calculo(int argc, char* argv[], MainWindow &main_window)
+int calculo(int argc, char * filename, MainWindow &main_window)
 {
     int iTemp=0;											/*guarda o numero de interacoes no tempo*/
     double time=-(STDDETAT);
@@ -188,7 +188,7 @@ int calculo(int argc, char* argv[], MainWindow &main_window)
   /* Leitura do netlist */
   ne=0; nv=0; strcpy(lista[0],"0");
   if (argc>1) {
-    strcpy(nomearquivo,argv[1]);
+    strcpy(nomearquivo,filename);
     main_window.i_printf("Lendo arquivo %s\n",nomearquivo);
   }
   else {
