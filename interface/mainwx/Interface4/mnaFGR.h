@@ -1,0 +1,6 @@
+#ifndef MNAFGR_H_INCLUDED
+#define MNAFGR_H_INCLUDED
+
+
+
+#endif // MNAFGR_H_INCLUDED
