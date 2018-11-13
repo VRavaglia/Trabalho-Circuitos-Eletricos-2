@@ -21,7 +21,13 @@
 
 //Conversao do MNA1
 
-void Interface4Frame::i_erro(wxString msg_erro){
+void Interface4Frame::i_erro(const char* format, ...){
+    char buffer[1024];
+    va_list argptr;
+    va_start(argptr, format);
+    vsnprintf(buffer, 1024, format, argptr);
+    va_end(argptr);
+    wxString msg_erro = wxString::FromUTF8(buffer);
     wxMessageBox(msg_erro, _("O seguinte erro ocorreu:"));
 };
 
@@ -116,11 +122,12 @@ void Interface4Frame::OnOpen(wxCommandEvent &event)
 {
 
     wxString file = this->i_abrir();
-
-    wxMessageBox(file, _("Caminho para o arquivo selecionado:"));
 }
 
 void Interface4Frame::OnCalc(wxCommandEvent &event)
 {
-
+    if (nome_arquivo.empty()){
+        nome_arquivo = this->i_abrir();
+    }
+    calculo(nome_arquivo.mb_str(), *this);
 }

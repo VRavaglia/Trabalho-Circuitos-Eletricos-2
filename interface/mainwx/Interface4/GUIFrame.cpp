@@ -66,6 +66,7 @@ GUIFrame::GUIFrame( wxWindow* parent, int id, wxString title, wxPoint pos, wxSiz
 
 	console = new wxRichTextCtrl( this, wxID_ANY, wxEmptyString, wxDefaultPosition, wxDefaultSize, 0|wxVSCROLL|wxHSCROLL|wxNO_BORDER|wxWANTS_CHARS );
 	console->SetEditable(false);
+	console->SetFont(wxFont(12, wxFONTFAMILY_TELETYPE, wxFONTSTYLE_NORMAL, wxFONTWEIGHT_NORMAL));
 	bSizer1->Add( console, 1, wxEXPAND | wxALL, 5 );
 
 

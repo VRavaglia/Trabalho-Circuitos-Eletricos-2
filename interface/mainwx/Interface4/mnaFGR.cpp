@@ -46,6 +46,9 @@ Os nos podem ser nomes
 #define TOLG 1e-9
 #define DEBUG
 
+#include "Interface4Main.h"
+
+
 typedef struct elemento { /* Elemento do netlist */
   char nome[MAX_NOME];
   double valor;
@@ -77,7 +80,7 @@ double
 
 /* Resolucao de sistema de equacoes lineares.
    Metodo de Gauss-Jordan com condensacao pivotal */
-int resolversistema(void)
+int resolversistema(Interface4Frame& frame)
 {
   int i,j,l, a;
   double t, p;
@@ -99,7 +102,7 @@ int resolversistema(void)
       }
     }
     if (fabs(t)<TOLG) {
-      printf("Sistema singular\n");
+      frame.i_erro("Sistema singular\n");
       return 1;
     }
     for (j=nv+1; j>i; j--) {  /* Basta j>i em vez de j>0 */
@@ -116,7 +119,7 @@ int resolversistema(void)
 }
 
 /* Rotina que conta os nos e atribui numeros a eles */
-int numero(char *nome)
+int numero(char *nome, Interface4Frame& frame)
 {
   int i,achou;
 
@@ -125,7 +128,7 @@ int numero(char *nome)
     if (!(achou=!strcmp(nome,lista[i]))) i++;
   if (!achou) {
     if (nv==MAX_NOS) {
-      printf("O programa so aceita ate %d nos\n",nv);
+      frame.i_erro("O programa so aceita ate %d nos\n",nv);
       exit(1);
     }
     nv++;
@@ -137,36 +140,45 @@ int numero(char *nome)
   }
 }
 
-int main(int argc, char* argv[])
+int calculo(const char *caminho_netlist, Interface4Frame &frame)
 {
-  clrscr();
-  printf("Programa demonstrativo de analise nodal modificada\n");
-  printf("Por Antonio Carlos M. de Queiroz - acmq@coe.ufrj.br\n");
-  printf("Versao %s\n",versao);
- denovo:
-  /* Leitura do netlist */
+  frame.i_printf("Programa demonstrativo de analise nodal modificada\n");
+  frame.i_printf("Por Antonio Carlos M. de Queiroz - acmq@coe.ufrj.br\n");
+  frame.i_printf("Versao %s\n",versao);
+
+  arquivo = fopen(caminho_netlist, "r");
+
+  if (arquivo == NULL) {
+    frame.i_erro("Erro ao ler o arquivo");
+    return -1;
+  }
   ne=0; nv=0; strcpy(lista[0],"0");
+  /*
+ denovo:
+//  /* Leitura do netlist
+
   if (argc>1) {
     strcpy(nomearquivo,argv[1]);
-    printf("Lendo arquivo %s\n",nomearquivo);
+    frame.i_printf("Lendo arquivo %s\n",nomearquivo);
   }
   else {
-    printf("Nome do arquivo com o netlist (ex: mna.net): ");
-    scanf("%50s",nomearquivo);
+    frame.i_printf("Nome do arquivo com o netlist (ex: mna.net): ");
+    strcpy(nomearquivo, );
   }
   arquivo=fopen(nomearquivo,"r");
   if (arquivo==0) {
-    printf("Arquivo %s inexistente.\n",nomearquivo);
+    frame.i_erro("Arquivo %s inexistente.\n",nomearquivo);
     argc=1;
     goto denovo;
   }
-  printf("Lendo netlist:\n");
+  */
+  frame.i_printf("Lendo netlist:\n");
   fgets(txt,MAX_LINHA,arquivo);
-  printf("Titulo: %s",txt);
+  frame.i_printf("Titulo: %s",txt);
   while (fgets(txt,MAX_LINHA,arquivo)) {
     ne++; /* Nao usa o netlist[0] */
     if (ne>MAX_ELEM) {
-      printf("O programa so aceita ate %d elementos.\n",MAX_ELEM);
+      frame.i_erro("O programa so aceita ate %d elementos.\n",MAX_ELEM);
       exit(1);
     }
     txt[0]=toupper(txt[0]);
@@ -176,33 +188,33 @@ int main(int argc, char* argv[])
     /* O que e lido depende do tipo */
     if (tipo=='R' || tipo=='I' || tipo=='V') {
       sscanf(p,"%10s%10s%lg",na,nb,&netlist[ne].valor);
-      printf("%s %s %s %g\n",netlist[ne].nome,na,nb,netlist[ne].valor);
-      netlist[ne].a=numero(na);
-      netlist[ne].b=numero(nb);
+      frame.i_printf("%s %s %s %g\n",netlist[ne].nome,na,nb,netlist[ne].valor);
+      netlist[ne].a=numero(na, frame);
+      netlist[ne].b=numero(nb, frame);
     }
     else if (tipo=='G' || tipo=='E' || tipo=='F' || tipo=='H') {
       sscanf(p,"%10s%10s%10s%10s%lg",na,nb,nc,nd,&netlist[ne].valor);
-      printf("%s %s %s %s %s %g\n",netlist[ne].nome,na,nb,nc,nd,netlist[ne].valor);
-      netlist[ne].a=numero(na);
-      netlist[ne].b=numero(nb);
-      netlist[ne].c=numero(nc);
-      netlist[ne].d=numero(nd);
+      frame.i_printf("%s %s %s %s %s %g\n",netlist[ne].nome,na,nb,nc,nd,netlist[ne].valor);
+      netlist[ne].a=numero(na, frame);
+      netlist[ne].b=numero(nb, frame);
+      netlist[ne].c=numero(nc, frame);
+      netlist[ne].d=numero(nd, frame);
     }
     else if (tipo=='O') {
       sscanf(p,"%10s%10s%10s%10s",na,nb,nc,nd);
-      printf("%s %s %s %s %s\n",netlist[ne].nome,na,nb,nc,nd);
-      netlist[ne].a=numero(na);
-      netlist[ne].b=numero(nb);
-      netlist[ne].c=numero(nc);
-      netlist[ne].d=numero(nd);
+      frame.i_printf("%s %s %s %s %s\n",netlist[ne].nome,na,nb,nc,nd);
+      netlist[ne].a=numero(na, frame);
+      netlist[ne].b=numero(nb, frame);
+      netlist[ne].c=numero(nc, frame);
+      netlist[ne].d=numero(nd, frame);
     }
     else if (tipo=='*') { /* Comentario comeca com "*" */
-      printf("Comentario: %s",txt);
+      frame.i_printf("Comentario: %s",txt);
       ne--;
     }
     else {
-      printf("Elemento desconhecido: %s\n",txt);
-      getch();
+      frame.i_erro("Elemento desconhecido: %s\n",txt);
+
       exit(1);
     }
   }
@@ -214,7 +226,7 @@ int main(int argc, char* argv[])
     if (tipo=='V' || tipo=='E' || tipo=='F' || tipo=='O') {
       nv++;
       if (nv>MAX_NOS) {
-        printf("As correntes extra excederam o numero de variaveis permitido (%d)\n",MAX_NOS);
+        frame.i_erro("As correntes extra excederam o numero de variaveis permitido (%d)\n",MAX_NOS);
         exit(1);
       }
       strcpy(lista[nv],"j"); /* Tem espaco para mais dois caracteres */
@@ -224,7 +236,7 @@ int main(int argc, char* argv[])
     else if (tipo=='H') {
       nv=nv+2;
       if (nv>MAX_NOS) {
-        printf("As correntes extra excederam o numero de variaveis permitido (%d)\n",MAX_NOS);
+        frame.i_erro("As correntes extra excederam o numero de variaveis permitido (%d)\n",MAX_NOS);
         exit(1);
       }
       strcpy(lista[nv-1],"jx"); strcat(lista[nv-1],netlist[i].nome);
@@ -233,33 +245,33 @@ int main(int argc, char* argv[])
       netlist[i].y=nv;
     }
   }
-  getch();
+
   /* Lista tudo */
-  printf("Variaveis internas: \n");
+  frame.i_printf("Variaveis internas: \n");
   for (i=0; i<=nv; i++)
-    printf("%d -> %s\n",i,lista[i]);
-  getch();
-  printf("Netlist interno final\n");
+    frame.i_printf("%d -> %s\n",i,lista[i]);
+
+  frame.i_printf("Netlist interno final\n");
   for (i=1; i<=ne; i++) {
     tipo=netlist[i].nome[0];
     if (tipo=='R' || tipo=='I' || tipo=='V') {
-      printf("%s %d %d %g\n",netlist[i].nome,netlist[i].a,netlist[i].b,netlist[i].valor);
+      frame.i_printf("%s %d %d %g\n",netlist[i].nome,netlist[i].a,netlist[i].b,netlist[i].valor);
     }
     else if (tipo=='G' || tipo=='E' || tipo=='F' || tipo=='H') {
-      printf("%s %d %d %d %d %g\n",netlist[i].nome,netlist[i].a,netlist[i].b,netlist[i].c,netlist[i].d,netlist[i].valor);
+      frame.i_printf("%s %d %d %d %d %g\n",netlist[i].nome,netlist[i].a,netlist[i].b,netlist[i].c,netlist[i].d,netlist[i].valor);
     }
     else if (tipo=='O') {
-      printf("%s %d %d %d %d\n",netlist[i].nome,netlist[i].a,netlist[i].b,netlist[i].c,netlist[i].d);
+      frame.i_printf("%s %d %d %d %d\n",netlist[i].nome,netlist[i].a,netlist[i].b,netlist[i].c,netlist[i].d);
     }
     if (tipo=='V' || tipo=='E' || tipo=='F' || tipo=='O')
-      printf("Corrente jx: %d\n",netlist[i].x);
+      frame.i_printf("Corrente jx: %d\n",netlist[i].x);
     else if (tipo=='H')
-      printf("Correntes jx e jy: %d, %d\n",netlist[i].x,netlist[i].y);
+      frame.i_printf("Correntes jx e jy: %d, %d\n",netlist[i].x,netlist[i].y);
   }
-  getch();
+
   /* Monta o sistema nodal modificado */
-  printf("O circuito tem %d nos, %d variaveis e %d elementos\n",nn,nv,ne);
-  getch();
+  frame.i_printf("O circuito tem %d nos, %d variaveis e %d elementos\n",nn,nv,ne);
+
   /* Zera sistema */
   for (i=0; i<=nv; i++) {
     for (j=0; j<=nv+1; j++)
@@ -332,40 +344,40 @@ int main(int argc, char* argv[])
     }
 #ifdef DEBUG
     /* Opcional: Mostra o sistema apos a montagem da estampa */
-    printf("Sistema apos a estampa de %s\n",netlist[i].nome);
+    frame.i_printf("Sistema apos a estampa de %s\n",netlist[i].nome);
     for (k=1; k<=nv; k++) {
       for (j=1; j<=nv+1; j++)
-        if (Yn[k][j]!=0) printf("%+3.1f ",Yn[k][j]);
-        else printf(" ... ");
-      printf("\n");
+        if (Yn[k][j]!=0) frame.i_printf("%+3.1f ",Yn[k][j]);
+        else frame.i_printf(" ... ");
+      frame.i_printf("\n");
     }
-    getch();
+
 #endif
   }
   /* Resolve o sistema */
-  if (resolversistema()) {
-    getch();
+  if (resolversistema(frame)) {
+
     exit(1);
   }
 #ifdef DEBUG
   /* Opcional: Mostra o sistema resolvido */
-  printf("Sistema resolvido:\n");
+  frame.i_printf("Sistema resolvido:\n");
   for (i=1; i<=nv; i++) {
       for (j=1; j<=nv+1; j++)
-        if (Yn[i][j]!=0) printf("%+3.1f ",Yn[i][j]);
-        else printf(" ... ");
-      printf("\n");
+        if (Yn[i][j]!=0) frame.i_printf("%+3.1f ",Yn[i][j]);
+        else frame.i_printf(" ... ");
+      frame.i_printf("\n");
     }
-  getch();
+
 #endif
   /* Mostra solucao */
-  printf("Solucao:\n");
+  frame.i_printf("Solucao:\n");
   strcpy(txt,"Tensao");
   for (i=1; i<=nv; i++) {
     if (i==nn+1) strcpy(txt,"Corrente");
-    printf("%s %s: %g\n",txt,lista[i],Yn[i][nv+1]);
+    frame.i_printf("%s %s: %g\n",txt,lista[i],Yn[i][nv+1]);
   }
-  getch();
+
   return 0;
 }
 

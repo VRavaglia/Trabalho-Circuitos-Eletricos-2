@@ -21,9 +21,11 @@
 class Interface4Frame: public GUIFrame
 {
     public:
+        wxString nome_arquivo;
+
         Interface4Frame(wxFrame *frame);
         ~Interface4Frame();
-        void i_erro(wxString);
+        void i_erro(const char* format, ...);
         void i_printf(const char* , ...);
         wxString i_abrir();
     private:
