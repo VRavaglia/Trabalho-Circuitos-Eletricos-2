@@ -68,6 +68,12 @@
 		<Unit filename="Interface4Main.cpp" />
 		<Unit filename="Interface4Main.h" />
 		<Unit filename="WxWizFrame.fbp" />
+		<Unit filename="mnaFGR.cpp">
+			<Option target="&lt;{~None~}&gt;" />
+		</Unit>
+		<Unit filename="mnaFGR.h">
+			<Option target="&lt;{~None~}&gt;" />
+		</Unit>
 		<Unit filename="resource.rc">
 			<Option compilerVar="WINDRES" />
 		</Unit>

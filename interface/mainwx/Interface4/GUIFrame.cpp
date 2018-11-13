@@ -16,6 +16,7 @@
 #endif //WX_PRECOMP
 
 #include "GUIFrame.h"
+#include <wx/richtext/richtextctrl.h>
 #define __GXX_ABI_VERSION 1010
 
 ///////////////////////////////////////////////////////////////////////////
@@ -26,6 +27,8 @@ BEGIN_EVENT_TABLE( GUIFrame, wxFrame )
     EVT_MENU( idMenuOpen, GUIFrame::_wxFB_OnOpen )
     EVT_MENU( idMenuCalc, GUIFrame::_wxFB_OnCalc )
 END_EVENT_TABLE()
+
+wxRichTextCtrl* console;
 
 GUIFrame::GUIFrame( wxWindow* parent, int id, wxString title, wxPoint pos, wxSize size, int style ) : wxFrame( parent, id, title, pos, size, style )
 {
@@ -57,6 +60,16 @@ GUIFrame::GUIFrame( wxWindow* parent, int id, wxString title, wxPoint pos, wxSiz
     simulMenu->Append( menuCalcular );
 
     mbar->Append( simulMenu, wxT("&Simular") );
+
+    wxBoxSizer* bSizer1;
+	bSizer1 = new wxBoxSizer( wxVERTICAL );
+
+	console = new wxRichTextCtrl( this, wxID_ANY, wxEmptyString, wxDefaultPosition, wxDefaultSize, 0|wxVSCROLL|wxHSCROLL|wxNO_BORDER|wxWANTS_CHARS );
+	console->SetEditable(false);
+	bSizer1->Add( console, 1, wxEXPAND | wxALL, 5 );
+
+
+	this->SetSizer( bSizer1 );
 
 
 

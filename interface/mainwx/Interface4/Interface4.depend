@@ -1,8 +1,9 @@
 # depslib dependency file v1.0
-1541942661 source:e:\interface\mainwx\interface4\guiframe.cpp
+1542110681 source:e:\interface\mainwx\interface4\guiframe.cpp
 	"wx/wxprec.h"
 	<wx/wx.h>
 	"GUIFrame.h"
+	<wx/richtext/richtextctrl.h>
 
 1186425692 c:\wxwidgets-2.8.12\include\wx\wxprec.h
 	"wx/defs.h"
@@ -1756,10 +1757,55 @@
 
 1186425652 c:\wxwidgets-2.8.12\include\wx\msw\filedlg.h
 
-1541942802 e:\interface\mainwx\interface4\guiframe.h
+1542110867 e:\interface\mainwx\interface4\guiframe.h
 	<wx_pch.h>
 	<wx/wx.h>
 	<wx/menu.h>
+	<wx/richtext/richtextctrl.h>
+
+1264681562 c:\wxwidgets-2.8.12\include\wx\richtext\richtextctrl.h
+	"wx/richtext/richtextbuffer.h"
+	"wx/scrolwin.h"
+	"wx/caret.h"
+	"wx/textctrl.h"
+
+1298322566 c:\wxwidgets-2.8.12\include\wx\richtext\richtextbuffer.h
+	"wx/defs.h"
+	"wx/list.h"
+	"wx/textctrl.h"
+	"wx/bitmap.h"
+	"wx/image.h"
+	"wx/cmdproc.h"
+	"wx/txtstrm.h"
+	"wx/dataobj.h"
+
+1195469734 c:\wxwidgets-2.8.12\include\wx\cmdproc.h
+	"wx/defs.h"
+	"wx/object.h"
+	"wx/list.h"
+
+1211194296 c:\wxwidgets-2.8.12\include\wx\txtstrm.h
+	"wx/stream.h"
+	"wx/convauto.h"
+
+1186425692 c:\wxwidgets-2.8.12\include\wx\convauto.h
+	"wx/strconv.h"
+
+1195469732 c:\wxwidgets-2.8.12\include\wx\caret.h
+	"wx/defs.h"
+	"wx/gdicmn.h"
+	"wx/msw/caret.h"
+	"wx/generic/caret.h"
+
+1186425650 c:\wxwidgets-2.8.12\include\wx\msw\caret.h
+
+1186425686 c:\wxwidgets-2.8.12\include\wx\generic\caret.h
+	"wx/timer.h"
+	"wx/dc.h"
+	"wx/overlay.h"
+
+1211194296 c:\wxwidgets-2.8.12\include\wx\overlay.h
+	"wx/defs.h"
 
 1541939126 source:e:\interface\mainwx\interface4\interface4app.cpp
 	"wx_pch.h"
@@ -1769,13 +1815,9 @@
 1541939126 e:\interface\mainwx\interface4\interface4app.h
 	<wx/app.h>
 
-1541942528 e:\interface\mainwx\interface4\interface4main.h
+1542112402 e:\interface\mainwx\interface4\interface4main.h
 	"Interface4App.h"
 	"GUIFrame.h"
-
-1541942474 source:e:\interface\mainwx\interface4\interface4main.cpp
-	"wx_pch.h"
-	"Interface4Main.h"
 
 1514140570 source:e:\interface\mainwx\interface4\resource.rc
 	"wx/msw/wx.rc"
@@ -1797,4 +1839,11 @@
 1186425648 c:\wxwidgets-2.8.12\include\wx\msw\wince\resources.h
 
 1186425652 c:\wxwidgets-2.8.12\include\wx\msw\rcdefs.h
+
+1542110026 source:e:\interface\mainwx\interface4\interface4main.cpp
+	"wx_pch.h"
+	"Interface4Main.h"
+	"mnaFGR.h"
+
+1541943283 e:\interface\mainwx\interface4\mnafgr.h
 

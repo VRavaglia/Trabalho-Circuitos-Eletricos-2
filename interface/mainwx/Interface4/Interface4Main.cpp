@@ -19,6 +19,38 @@
 #include "mnaFGR.h"
 #define __GXX_ABI_VERSION 1010
 
+//Conversao do MNA1
+
+void Interface4Frame::i_erro(wxString msg_erro){
+    wxMessageBox(msg_erro, _("O seguinte erro ocorreu:"));
+};
+
+void Interface4Frame::i_printf(const char* format, ...){
+    char buffer[1024];
+    va_list argptr;
+    va_start(argptr, format);
+    vsnprintf(buffer, 1024, format, argptr);
+    va_end(argptr);
+    wxString msg = wxString::FromUTF8(buffer);
+    console->AppendText(msg);
+
+};
+
+wxString Interface4Frame::i_abrir(){
+    wxFileDialog  fdlog(this);
+    wxString file;
+    // show file dialog and get the path to
+    // the file that was selected.
+    if(fdlog.ShowModal() != wxID_OK) return _("");
+    file.Clear();
+    file = fdlog.GetPath();
+
+    return file;
+};
+
+
+//Fim conversao
+
 //helper functions
 enum wxbuildinfoformat {
     short_f, long_f };
@@ -83,15 +115,9 @@ void Interface4Frame::OnAbout(wxCommandEvent &event)
 void Interface4Frame::OnOpen(wxCommandEvent &event)
 {
 
-    wxFileDialog  fdlog(this);
+    wxString file = this->i_abrir();
 
-    // show file dialog and get the path to
-    // the file that was selected.
-    if(fdlog.ShowModal() != wxID_OK) return;
-    file.Clear();
-    file = fdlog.GetPath();
-
-    wxMessageBox(file, _("Simulador"));
+    wxMessageBox(file, _("Caminho para o arquivo selecionado:"));
 }
 
 void Interface4Frame::OnCalc(wxCommandEvent &event)

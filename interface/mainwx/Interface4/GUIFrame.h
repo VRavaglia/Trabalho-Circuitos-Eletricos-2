@@ -21,6 +21,7 @@
 #endif
 
 #include <wx/menu.h>
+#include <wx/richtext/richtextctrl.h>
 
 
 ///////////////////////////////////////////////////////////////////////////
@@ -60,7 +61,7 @@ class GUIFrame : public wxFrame
 
     public:
         GUIFrame( wxWindow* parent, int id = wxID_ANY, wxString title = wxT("Simulador"), wxPoint pos = wxDefaultPosition, wxSize size = wxSize( 800,500 ), int style = wxDEFAULT_FRAME_STYLE|wxTAB_TRAVERSAL );
-
+        wxRichTextCtrl* console;
 };
 
 #endif //__GUIFrame__

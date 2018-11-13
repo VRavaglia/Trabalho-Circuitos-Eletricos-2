@@ -23,6 +23,9 @@ class Interface4Frame: public GUIFrame
     public:
         Interface4Frame(wxFrame *frame);
         ~Interface4Frame();
+        void i_erro(wxString);
+        void i_printf(const char* , ...);
+        wxString i_abrir();
     private:
         virtual void OnClose(wxCloseEvent& event);
         virtual void OnQuit(wxCommandEvent& event);
