@@ -9,7 +9,7 @@
 
 #ifndef INTERFACE4MAIN_H
 #define INTERFACE4MAIN_H
-#define __GXX_ABI_VERSION 1010
+//#define __GXX_ABI_VERSION 1010
 
 
 
@@ -22,6 +22,10 @@ class Interface4Frame: public GUIFrame
 {
     public:
         wxString nome_arquivo;
+        double tempo_inicial;
+        double tempo_final;
+        double delta_t;
+        int p_op_ou_c_ini;
 
         Interface4Frame(wxFrame *frame);
         ~Interface4Frame();
@@ -34,6 +38,7 @@ class Interface4Frame: public GUIFrame
         virtual void OnAbout(wxCommandEvent& event);
         virtual void OnOpen(wxCommandEvent& event);
         virtual void OnCalc(wxCommandEvent& event);
+        virtual void OnCalcN(wxCommandEvent& event);
 };
 
 #endif // INTERFACE4MAIN_H

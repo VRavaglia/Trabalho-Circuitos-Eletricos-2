@@ -1,11 +1,3 @@
-/***************************************************************
- * Name:      Interface4App.cpp
- * Purpose:   Code for Application Class
- * Author:     ()
- * Created:   2018-11-11
- * Copyright:  ()
- * License:
- **************************************************************/
 
 #ifdef WX_PRECOMP
 #include "wx_pch.h"
@@ -22,8 +14,9 @@ IMPLEMENT_APP(Interface4App);
 
 bool Interface4App::OnInit()
 {
+    //Cria e mostra a interface
     Interface4Frame* frame = new Interface4Frame(0L);
-    frame->SetIcon(wxICON(aaaa)); // To Set App Icon
+    frame->SetIcon(wxICON(aaaa));
     frame->Show();
 
     return true;

@@ -7,7 +7,7 @@
 
 #ifndef __GUIFrame__
 #define __GUIFrame__
-#define __GXX_ABI_VERSION 1010
+//#define __GXX_ABI_VERSION 1010
 
 // Define WX_GCH in order to support precompiled headers with GCC compiler.
 // You have to create the header "wx_pch.h" and include all files needed
@@ -30,6 +30,7 @@
 #define idMenuAbout 1001
 #define idMenuOpen 1002
 #define idMenuCalc 1003
+#define idMenuCalcN 1004
 
 ///////////////////////////////////////////////////////////////////////////////
 /// Class GUIFrame
@@ -45,6 +46,7 @@ class GUIFrame : public wxFrame
         void _wxFB_OnAbout( wxCommandEvent& event ){ OnAbout( event ); }
         void _wxFB_OnOpen( wxCommandEvent& event ){ OnOpen( event ); }
         void _wxFB_OnCalc( wxCommandEvent& event ){ OnCalc( event ); }
+        void _wxFB_OnCalcN( wxCommandEvent& event ){ OnCalcN( event ); }
 
 
     protected:
@@ -57,6 +59,7 @@ class GUIFrame : public wxFrame
         virtual void OnAbout( wxCommandEvent& event ){ event.Skip(); }
         virtual void OnOpen( wxCommandEvent& event ){ event.Skip(); }
         virtual void OnCalc( wxCommandEvent& event ){ event.Skip(); }
+        virtual void OnCalcN( wxCommandEvent& event ){ event.Skip(); }
 
 
     public:

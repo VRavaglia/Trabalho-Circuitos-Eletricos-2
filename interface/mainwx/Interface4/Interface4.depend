@@ -1,5 +1,5 @@
 # depslib dependency file v1.0
-1542146373 source:e:\interface\mainwx\interface4\guiframe.cpp
+1542244910 source:e:\interface\mainwx\interface4\guiframe.cpp
 	"wx/wxprec.h"
 	<wx/wx.h>
 	"GUIFrame.h"
@@ -1757,7 +1757,7 @@
 
 1186425652 c:\wxwidgets-2.8.12\include\wx\msw\filedlg.h
 
-1542110867 e:\interface\mainwx\interface4\guiframe.h
+1542244694 e:\interface\mainwx\interface4\guiframe.h
 	<wx_pch.h>
 	<wx/wx.h>
 	<wx/menu.h>
@@ -1807,22 +1807,23 @@
 1211194296 c:\wxwidgets-2.8.12\include\wx\overlay.h
 	"wx/defs.h"
 
-1541939126 source:e:\interface\mainwx\interface4\interface4app.cpp
+1542228929 source:e:\interface\mainwx\interface4\interface4app.cpp
 	"wx_pch.h"
 	"Interface4App.h"
 	"Interface4Main.h"
 
-1541939126 e:\interface\mainwx\interface4\interface4app.h
+1542228929 e:\interface\mainwx\interface4\interface4app.h
 	<wx/app.h>
 
-1542144625 e:\interface\mainwx\interface4\interface4main.h
+1542245588 e:\interface\mainwx\interface4\interface4main.h
 	"Interface4App.h"
 	"GUIFrame.h"
 
-1542147260 source:e:\interface\mainwx\interface4\interface4main.cpp
+1542244780 source:e:\interface\mainwx\interface4\interface4main.cpp
 	"wx_pch.h"
 	"Interface4Main.h"
 	"mnaFGR.h"
+	<wx/textdlg.h>
 
 1542146094 e:\interface\mainwx\interface4\mnafgr.h
 
