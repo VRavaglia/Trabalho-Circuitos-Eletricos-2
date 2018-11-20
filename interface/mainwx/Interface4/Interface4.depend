@@ -1,5 +1,5 @@
 # depslib dependency file v1.0
-1542244910 source:e:\interface\mainwx\interface4\guiframe.cpp
+1542716124 source:e:\interface\mainwx\interface4\guiframe.cpp
 	"wx/wxprec.h"
 	<wx/wx.h>
 	"GUIFrame.h"
@@ -1807,7 +1807,7 @@
 1211194296 c:\wxwidgets-2.8.12\include\wx\overlay.h
 	"wx/defs.h"
 
-1542228929 source:e:\interface\mainwx\interface4\interface4app.cpp
+1542493610 source:e:\interface\mainwx\interface4\interface4app.cpp
 	"wx_pch.h"
 	"Interface4App.h"
 	"Interface4Main.h"
@@ -1815,26 +1815,25 @@
 1542228929 e:\interface\mainwx\interface4\interface4app.h
 	<wx/app.h>
 
-1542245588 e:\interface\mainwx\interface4\interface4main.h
+1542716579 e:\interface\mainwx\interface4\interface4main.h
 	"Interface4App.h"
 	"GUIFrame.h"
 
-1542244780 source:e:\interface\mainwx\interface4\interface4main.cpp
+1542716578 source:e:\interface\mainwx\interface4\interface4main.cpp
 	"wx_pch.h"
 	"Interface4Main.h"
 	"mnaFGR.h"
 	<wx/textdlg.h>
 
-1542146094 e:\interface\mainwx\interface4\mnafgr.h
+1542716462 e:\interface\mainwx\interface4\mnafgr.h
 
-1542146224 source:e:\interface\mainwx\interface4\mnafgr.cpp
+1542716464 source:e:\interface\mainwx\interface4\mnafgr.cpp
 	<stdio.h>
-	<conio.h>
+	"Interface4Main.h"
 	<string.h>
 	<stdlib.h>
 	<ctype.h>
 	<math.h>
-	"Interface4Main.h"
 
 1514140570 source:e:\interface\mainwx\interface4\resource.rc
 	"wx/msw/wx.rc"

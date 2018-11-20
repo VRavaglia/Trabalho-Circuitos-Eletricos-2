@@ -154,7 +154,7 @@ void Interface4Frame::OnCalcN(wxCommandEvent &event){
 
     //Limpa a tela e inicia uma simulacao com os parametros anteriores
     console->Clear();
-    calculo(nome_arquivo.mb_str(), *this);
+    calculo(nome_arquivo.mb_str(), *this, tempo_final, delta_t, p_op_ou_c_ini);
 }
 
 //Ao clicar no botao "calcular" inicia-se o processo de simulacao
@@ -167,13 +167,6 @@ void Interface4Frame::OnCalc(wxCommandEvent &event)
 
     //Pede os parametros necessarios para a simulacao
     //Primeiramente, exibe uma caixa de dialogo para receber o tempo inicial
-    wxTextEntryDialog inputDialog(this, _("Entre com o tempo inicial da simulacao:"), _("Simulacao"));
-
-    //Checa se o paramewtro inserido faz sentido
-    if (inputDialog.ShowModal() != wxID_OK) {
-        i_erro("Tempo inserido invalido.");
-        return;
-    }
 
     //Exibe uma caixa de dialogo para receber o tempo final
     wxTextEntryDialog inputDialog2(this, _("Entre com o tempo final da simulacao:"), _("Simulacao"));
@@ -200,24 +193,19 @@ void Interface4Frame::OnCalc(wxCommandEvent &event)
     }
 
     //A partir dos dialogos, gera os parametros que vao ser passados como argumentos pra funcao principal
-    p_op_ou_c_ini = inputDialog4.GetSelection();
-    char* inicializacao;
-
-    if (p_op_ou_c_ini == 1){
-        inicializacao = "Condicoes Iniciais";
+    if (inputDialog4.GetSelection() == 1){
+        p_op_ou_c_ini = false;
     }
     else{
-        inicializacao = "Ponto de Operacao";
+        p_op_ou_c_ini = true;
     }
 
-    tempo_inicial = atof(inputDialog.GetValue().mb_str());
     tempo_final = atof(inputDialog2.GetValue().mb_str());
     delta_t = atof(inputDialog3.GetValue().mb_str());
 
     //Limpa o console e exibe uma lista dos parametros escolhidos
     console->Clear();
-    i_printf("Tempo inicial: %f\nTempo final: %f\nTamanho do passo: %f\nTipo de inicializacao: %s\n\n", tempo_inicial, tempo_final, delta_t, inicializacao);
 
     //Inicia a simulacao de fato chamando a funcao principal contida no MNA1 modificado
-    calculo(nome_arquivo.mb_str(), *this);
+    calculo(nome_arquivo.mb_str(), *this, tempo_final, delta_t, p_op_ou_c_ini);
 }
