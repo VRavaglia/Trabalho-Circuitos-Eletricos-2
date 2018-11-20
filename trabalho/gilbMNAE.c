@@ -61,10 +61,13 @@ Os nos podem ser nomes
 typedef enum boolean {falso=0, verdadeiro} boolean;
 
 typedef struct elemento { /* Elemento do netlist */
-	char nome[MAX_NOME],fType;			/*fType usado apenas por fontes*/
+	char nome[MAX_NOME],fType;		/*fType usado apenas por fontes*/
 	double par1, par2, par3, par4, par5, par6, par7, par8;
 	/*parametros na ordem em que aparecem na netlist*/
 	int a,b,c,d,x,y;			/*nos (x,y sao para controle)*/
+	struct elemento *auxComp;/*auxComp utilizado apenas por FF para 
+										apontar ao bloco
+							de reset*/
 } elemento;
 
 typedef struct tVarCell{
@@ -177,7 +180,8 @@ int main(int argc, char* argv[])
 	tVarCell *first, *cur,*aux;
 	dDCell *firstD, *curD, *auxD, *earlier;
 	char string[MAX_NOME+1],nomeTabela[MAX_NOME+1];
-	double *nrValues,*lastValues;		/*guarda os valores anteriores/ultima
+	double *nrValues,*lastValues,*lastLastValues;/*guarda os valores 
+																anteriores/ultima
 												interacao para o uso do metodo a analise
 												de newton raphson respectivamente*/
 	boolean operationPoint=falso,needNR=falso;
@@ -340,6 +344,28 @@ int main(int argc, char* argv[])
 		netlist[ne].b=numero(nb);
 		netlist[ne].c=numero(nc);
 	}
+	else if (tipo=='%'){/*flip-flop*/
+		char *auxComp;
+		sscanf(p,"%10s%10s%10s%10s%10s%lg%lg%lg",na,nb,nc,nd,
+				auxComp,&netlist[ne].par1,&netlist[ne].par2,
+				&netlist[ne].par3);
+		printf("%s %s %s %s %s %g %g %g\n",netlist[ne].nome,na,nb,nc,nd,
+				auxComp,netlist[ne].par1,netlist[ne].par2,
+				netlist[ne].par3);
+		netlist[ne].a=numero(na);
+		netlist[ne].b=numero(nb);
+		netlist[ne].c=numero(nc);
+		netlist[ne].d=numero(nd);
+		netlist[nv].auxComp= (elemento *) NULL;
+		for(i=0; i<ne; i++)
+			if (!strcmp(auxComp,netlist[i].nome)) netlist[nv].auxComp=&netlist[i];
+	}
+	else if (tipo=='!'){
+		sscanf(p,"%10s%10s%lg%lg",na,nb,&netlist[ne].par1,&netlist[ne].par2);
+		printf("%s %s %s %g %g\n",na,nb,&netlist[ne].par1,&netlist[ne].par2);
+		netlist[ne].a=numero(na);
+		netlist[ne].b=numero(nb);
+	}
     else if (tipo=='O') {
       sscanf(p,"%10s%10s%10s%10s",na,nb,nc,nd);
       printf("%s %s %s %s %s\n",netlist[ne].nome,na,nb,nc,nd);
@@ -441,9 +467,10 @@ int main(int argc, char* argv[])
 
 	nrValues=(double *) malloc(sizeof(double)*(nv));
 	lastValues=(double *) malloc(sizeof(double)*(nv));
+	lastLastValues=(double *) malloc(sizeof(double)*(nv));
 
 	for (i=0; i<nv; i++)
-		nrValues[i]=lastValues[i]=0.0;
+		nrValues[i]=lastValues[i]=lastLastValues[i]=0.0;
 
 	buildSys:
 	time+=deltaT;
@@ -718,6 +745,56 @@ int main(int argc, char* argv[])
 		}
 		else
 			g=netlist[i].par3/deltaT;
+		Yn[netlist[i].c][netlist[i].c]+=g;
+	}
+	else if (tipo=='%'){
+		double Qplus, Qminus;
+		if (netlist[i].auxComp){
+			if (lastValues[netlist[i].auxComp->b] >=
+				(netlist[i].auxComp->par1/2)){
+					Qplus=0.0;
+					Qminus=netlist[i].par1;
+			}
+			else if (lastValues[netlist[i].auxComp->a] >=
+						(netlist[i].auxComp->par1/2)){
+					Qminus=0.0;
+					Qplus=netlist[i].par1;
+			}
+			else goto flipFlop;
+		}
+		else{
+			flipFlop:
+			if (lastValues[netlist[i].d] >= (netlist[i].par1/2)){
+				if (lastLastValues[netlist[i].d] <= (netlist[i].par1/2)){
+					if (lastValues[netlist[i].a]>0){
+						Qplus=0.0;
+						Qminus=netlist[i].par1;
+					}
+					else{
+						Qplus=netlist[i].par1;
+						Qminus=0.0;
+					}
+				}
+			}
+			else if (time<deltaT){
+				Qplus=0.0;
+				Qminus=netlist[i].par1;
+			}
+		}
+		g=1/netlist[i].par2;
+		Yn[netlist[i].a][netlist[i].a]+=g;
+		Yn[netlist[i].b][netlist[i].b]+=g;
+		Yn[netlist[i].a][nv+1]+=g*Qplus;
+		Yn[netlist[i].b][nv+1]+=g*Qminus;
+		/*acrescentar os capacitores para terra*/
+		if (time==0.0){
+			if (operationPoint)
+				g=netlist[i].par3/1e10;
+			else
+				g=netlist[i].par3/1e-10;
+		}
+		else
+			g=netlist[i].par3/deltaT;
 		Yn[netlist[i].a][netlist[i].a]+=g;
 		Yn[netlist[i].b][netlist[i].b]+=g;
 	}
@@ -805,24 +882,15 @@ int main(int argc, char* argv[])
     }
   getch();
 #endif
-  /* Mostra solucao */
-	if (needBE){
-		printf("\nSolucao(#%i):\n", ++iTemp);
-		printf("t=%g\n", time);
-	}
-	else
-		printf("\nSolucao:\n");
-  strcpy(txt,"Tensao");
-  for (i=1; i<=nv; i++) {
-    if (i==nn+1) strcpy(txt,"Corrente");
-    printf("%s %s: %g\n",txt,lista[i],Yn[i][nv+1]);
+  /* Salvar solucao */
 	if (time==0.0){
-		if(i==1)
-			fprintf(tabela, "%s", "t ");
-		if(i!=nv)
-			fprintf(tabela, "%s ", lista[i]);
-		else
-			fprintf(tabela, "%s\n", lista[i]);
+		for (i=1; i<=nv; i++) {
+			if(i==1)
+				fprintf(tabela, "%s", "t ");
+			if(i!=nv)
+				fprintf(tabela, "%s ", lista[i]);
+			else
+				fprintf(tabela, "%s\n", lista[i]);
 		}
   }
 	for (i=1; i<=nv; i++){
@@ -847,6 +915,9 @@ int main(int argc, char* argv[])
 					netlist[(*cur).elNE].par2=Yn[netlist[(*cur).elNE].x][nv+1];
 				cur=(*cur).next;
 			}
+			if (time>=deltaT)
+				for (i=0; i<nv; i++)
+					lastLastValues[i]=lastValues[i];
 			for (i=0; i<nv; i++)
 				lastValues[i]=nrValues[i];
 
