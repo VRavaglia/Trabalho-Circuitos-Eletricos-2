@@ -347,7 +347,7 @@ int main(int argc, char* argv[])
 		netlist[ne].c=numero(nc);
 	}
 	else if (tipo=='%'){/*flip-flop*/
-		char *auxComp;
+		char auxComp[MAX_NOME];
 		sscanf(p,"%10s%10s%10s%10s%10s%lg%lg%lg",na,nb,nc,nd,
 				auxComp,&netlist[ne].par1,&netlist[ne].par2,
 				&netlist[ne].par3);
@@ -359,8 +359,10 @@ int main(int argc, char* argv[])
 		netlist[ne].c=numero(nc);
 		netlist[ne].d=numero(nd);
 		netlist[nv].auxComp= (elemento *) NULL;
-		for(i=0; i<ne; i++)
-			if (!strcmp(auxComp,netlist[i].nome)) netlist[nv].auxComp=&netlist[i];
+		for(i=0; i<ne; i++){
+			if (!strcmp(auxComp,netlist[i].nome))
+				netlist[nv].auxComp= (elemento *) &netlist[i];
+		}
 	}
 	else if (tipo=='!'){
 		sscanf(p,"%10s%10s%lg%lg",na,nb,&netlist[ne].par1,&netlist[ne].par2);
@@ -799,8 +801,9 @@ int main(int argc, char* argv[])
 		}
 		else
 			g=netlist[i].par3/deltaT;
-		Yn[netlist[i].a][netlist[i].a]+=g;
-		Yn[netlist[i].b][netlist[i].b]+=g;
+		Yn[netlist[i].c][netlist[i].c]+=g;
+		g=(g*lastValues[netlist[i].c]);	/*verificar*/
+		Yn[netlist[i].c][nv+1]+=g;
 	}
 
     else if (tipo=='E') {
