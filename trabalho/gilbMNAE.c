@@ -62,7 +62,8 @@ typedef enum boolean {falso=0, verdadeiro} boolean;
 
 typedef struct elemento { /* Elemento do netlist */
 	char nome[MAX_NOME],fType;		/*fType usado apenas por fontes*/
-	double par1, par2, par3, par4, par5, par6, par7, par8, par9; /*par9 usado para viabilizar o numero de ciclos*/
+	double par1, par2, par3, par4, par5, par6, par7;
+	unsigned par8, par9; /*numero de ciclos*/
 	/*parametros na ordem em que aparecem na netlist*/
 	int a,b,c,d,x,y;			/*nos (x,y sao para controle)*/
 	struct elemento *auxComp;/*auxComp utilizado apenas por FF para 
@@ -78,6 +79,7 @@ typedef struct tVarCell{
 typedef struct dDCell{
 	int elNE;					/*guarda o numero da fonte que varia no tempo (nao
 										senoidal*/
+	double internTimer;
 	struct dDCell *next;
 	boolean triggered,renovar;
 } dDCell;
@@ -105,7 +107,7 @@ char
 FILE *arquivo,*tabela;
 
 double
-	deltaT=STDDETAT,
+	deltaT=0.0,
 	g,
 	Yn[MAX_NOS+1][MAX_NOS+2];
 
@@ -174,17 +176,17 @@ int numero(char *nome)
 int main(int argc, char* argv[])
 {
 	int iTemp=0;											/*guarda o numero de interacoes no tempo*/
-	unsigned iNR=0,j;						/*guarda o numero de interacoes 
-											newton raphson*/
-	double time,lastTime=0.0,tFinal;
+	unsigned iNR=0,maxNR=0, j;	/*guarda o numero de interacoes 
+															newton raphson*/
+	double time,lastTime=0.0,tFinal=0.0,timePrecision;
 	tVarCell *first, *cur,*aux;
 	dDCell *firstD, *curD, *auxD, *earlier;
-	char string[MAX_NOME+1],nomeTabela[MAX_NOME+1];
+	char string[MAX_NOME+1],nomeTabela[MAX_NOME+1],icOpo[MAX_NOME+1];
 	double *nrValues,*lastValues,*lastLastValues;/*guarda os valores 
 																anteriores/ultima
 												interacao para o uso do metodo a analise
 												de newton raphson respectivamente*/
-	boolean operationPoint=falso,needNR=falso;
+	boolean operationPoint=verdadeiro,needNR=falso;
 
 	first=(tVarCell *) NULL;
 	firstD=(dDCell *) NULL;
@@ -216,34 +218,6 @@ int main(int argc, char* argv[])
 	while (*(p) != '.') --p;
 	*(++p)='t';*(++p)='a';*(++p)='b';*(++p)='\0';		/*escreve tab no final*/
 	tabela=fopen(nomeTabela,"w");
-
-	if (argc>2){
-		if (argv[2][0] >= '0' && argv[2][0] <= '9')
-			sscanf(argv[2],"%lg", &tFinal);
-		else
-			goto tempFinal;
-	}
-	else{
-		tempFinal:
-			printf("Insira o tempo final: ");
-			scanf("%lg", &tFinal);
-	}
-	if (argc>3){
-		if (argv[3][0] >= '0' && argv[3][0] <= '9')
-			sscanf(argv[3],"%lg", &deltaT);
-		else
-			goto delT;
-	}
-	else{
-		delT:
-				printf("Insira o tamanho dos passos: ", &deltaT);
-				scanf("%lg", &deltaT);
-	}
-	if (argc>4)
-		if (toupper(argv[4][0]) == 'P' || toupper(argv[4][0]) == 'O')
-			operationPoint=verdadeiro;		/*o padrao eh ponto de operacao*/
-
-	time=-deltaT;
 
   printf("Lendo netlist:\n");
   fgets(txt,MAX_LINHA,arquivo);
@@ -278,7 +252,8 @@ int main(int argc, char* argv[])
 					if (!needBE) needBE=verdadeiro;
 					curD = (dDCell *) malloc(sizeof(dDCell));
 					(*curD).elNE=ne;
-					(*curD).next= (dDCell *) NULL;
+					(*curD).next=(dDCell *) NULL;
+					(*curD).internTimer=0.0;
 					(*curD).triggered=falso;
 					(*curD).renovar=falso;
 					if (!firstD) firstD=curD;
@@ -288,11 +263,11 @@ int main(int argc, char* argv[])
 						(*auxD).next=curD;
 					}
 					curD=firstD;
-					sscanf(p, "%10s%10s%10s%lg%lg%lg%lg%lg%lg%lg%lg",na,nb,string,
+					sscanf(p, "%10s%10s%10s%lg%lg%lg%lg%lg%lg%lg%u",na,nb,string,
 							&netlist[ne].par1,&netlist[ne].par2,&netlist[ne].par3,
 							&netlist[ne].par4,&netlist[ne].par5,&netlist[ne].par6,
 							&netlist[ne].par7,&netlist[ne].par8);
-					printf("%s %s %s %s %g %g %g %g %g %g %g %g\n", netlist[ne].nome,na,nb,
+					printf("%s %s %s %s %g %g %g %g %g %g %g %u\n", netlist[ne].nome,na,nb,
 						string,netlist[ne].par1,netlist[ne].par2,netlist[ne].par3,
 						netlist[ne].par4,netlist[ne].par5,netlist[ne].par6,
 						netlist[ne].par7,netlist[ne].par8);
@@ -378,6 +353,17 @@ int main(int argc, char* argv[])
       netlist[ne].c=numero(nc);
       netlist[ne].d=numero(nd);
     }
+	else if (tipo=='.'){
+		char analysisTipe[MAX_NOME];
+		strcpy(icOpo,"\0");
+		sscanf(p,"%lg%lg%10s%u%10s",&tFinal,&deltaT,analysisTipe,&maxNR,icOpo);
+		if (strlen(icOpo))
+			if (toupper(icOpo[1]=='I'))
+				operationPoint=falso;
+		printf("%s %g %g %s %u %s\n",netlist[ne].nome,tFinal,deltaT,analysisTipe,
+												maxNR,icOpo);
+		ne--;
+	}
     else if (tipo=='*') { /* Comentario comeca com "*" */
       printf("Comentario: %s",txt);
       ne--;
@@ -389,6 +375,20 @@ int main(int argc, char* argv[])
     }
   }
   fclose(arquivo);
+	if (tFinal==0.0){
+		printf("Insira o tempo final para analise: ");
+		scanf("%lg",&tFinal);
+		printf("Insira o tamanho dos passos: ");
+		scanf("%lg",&deltaT);
+		printf("Insira o numero de passos por ponto na tabela: ");
+		scanf("%u",&maxNR);
+		printf("Usar condicoes iniciais? [S]im ou [N]ao: ");
+		scanf("%10s",icOpo);
+		if (toupper(icOpo[0])=='S')
+			operationPoint=falso;
+	}
+	time=-deltaT;
+	timePrecision=deltaT/2;
   /* Acrescenta variaveis de corrente acima dos nos, anotando no netlist */
   nn=nv;
   for (i=1; i<=ne; i++) {
@@ -477,23 +477,17 @@ int main(int argc, char* argv[])
 
 	buildSys:
 	time+=deltaT;
-/*	{
-		earlier = curD = (dDCell *) NULL;
-*/
-		curD=firstD;
-		while(curD){
-			if ((((netlist[(*curD).elNE].par3)+netlist[(*curD).elNE].par7*
-			(netlist[(*curD).elNE].par8-netlist[(*curD).elNE].par9)) <= time) &&
-				!((*curD).triggered))/*{
-					time= (double) netlist[(*curD).elNE].par3;
-					earlier=curD;
-			}*/
+
+	curD=firstD;
+	while(curD){
+		if (((netlist[(*curD).elNE].par3) <= time) &&
+			!((*curD).triggered)){
 				(*curD).triggered=verdadeiro;
-			curD=(*curD).next;
+				(*curD).internTimer=deltaT+(time-netlist[(*curD).elNE].par3);
 		}
-/*		if (earlier) (*earlier).triggered=verdadeiro;
+		curD=(*curD).next;
 	}
-*/
+
 	newtonRaphson:
 	needNR=falso;
 
@@ -551,7 +545,10 @@ int main(int argc, char* argv[])
 	else if (tipo=='I') {
 		switch(netlist[i].fType){
 			case 'S':
-				g=netlist[i].par1+netlist[i].par2*(exp(-netlist[ne].par5*
+				if (time-netlist[i].par4 < 0.0)
+					g=netlist[i].par1;
+				else
+					g=netlist[i].par1+netlist[i].par2*(exp(-netlist[ne].par5*
 				(time-netlist[ne].par4)))*sin(2*PI*(netlist[i].par3)*(time-
 				netlist[ne].par4)-((PI/180)*netlist[i].par6)); /*ver como incluir numCic*/
 				break;
@@ -561,33 +558,32 @@ int main(int argc, char* argv[])
 					exit(1);
 				}
 				g=0;
-				if ((*curD).triggered){			/*revisar isso*/
-					if ((netlist[i].par3+netlist[i].par4+((netlist[i].par8-netlist[i].par9)*netlist[i].par7)) > time)
-						g=netlist[i].par1+(((netlist[i].par1-netlist[i].par2)/
-						netlist[i].par4)*(time-(netlist[i].par3)+((netlist[i].par8-netlist[i].par9)*netlist[i].par7)));
-					else if ((netlist[i].par3+netlist[i].par4+netlist[i].par6
-					+((netlist[i].par8-netlist[i].par9)*netlist[i].par7))>time)			/*talvez >=*/
-						g=netlist[i].par2;
-					else if ((netlist[i].par3+netlist[i].par4+netlist[i].par6+
-								netlist[i].par5+((netlist[i].par8-netlist[i].par9)*netlist[i].par7)) > time){ /*talvez >=*/
-						g=netlist[i].par2-(((netlist[i].par2-netlist[i].par1)/
-						netlist[i].par5)*(time-(netlist[i].par3+((netlist[i].par8-netlist[i].par9)*netlist[i].par7)+
-						netlist[i].par4+netlist[i].par6)));
-						if ((time+deltaT)>=(netlist[i].par3+netlist[i].par4+netlist[i].par6+
-							netlist[i].par5+((netlist[i].par8-netlist[i].par9)*netlist[i].par7))) goto renew;
-					}
+				if (time-netlist[i].par3 >= 0.0 && netlist[i].par9>0){
+					double timeChecker=(*curD).internTimer-(netlist[i].par4+netlist[i].par7*(netlist[i].par8-netlist[i].par9));
+					if (timeChecker<timePrecision && timeChecker<-deltaT*1e-5)
+						g=netlist[i].par1+(((*curD).internTimer-netlist[i].par7*(netlist[i].par8-netlist[i].par9))*
+							((netlist[i].par2-netlist[i].par1)/netlist[i].par4));
 					else{
-						if (netlist[i].par3+(netlist[i].par7*(netlist[i].par8-netlist[i].par9)) > time
-						|| netlist[i].par9==0){
-							g=netlist[i].par1;					/*desligado fica na amplitude inicial*/
+						timeChecker=(*curD).internTimer-(netlist[i].par4+netlist[i].par6+
+						netlist[i].par7*(netlist[i].par8-netlist[i].par9));
+						if (timeChecker<=(timePrecision+(deltaT*1e-5)))
+							g=netlist[i].par2;
+						else{
+							timeChecker=(*curD).internTimer-(netlist[i].par4+netlist[i].par5+netlist[i].par6+
+							netlist[i].par7*(netlist[i].par8-netlist[i].par9));
+							if (timeChecker<=(timePrecision+(deltaT*1e-5)))
+									g=netlist[i].par2-(((*curD).internTimer-(netlist[i].par4+netlist[i].par6+netlist[i].par7*
+									(netlist[i].par8-netlist[i].par9)))*((netlist[i].par2-netlist[i].par1)/netlist[i].par5));
+							else
+								g=netlist[i].par1;
 						}
-						renew:
-							(*curD).renovar=verdadeiro;
 					}
-					curD=(*curD).next;
 				}
-				else g=netlist[i].par1;							/*desligado fica na amplitude inicial*/
-				curD=(*curD).next;			/*sera*/
+				else
+					g=netlist[i].par1;							/*desligado fica na amplitude inicial*/
+				if ((*curD).internTimer+deltaT+(deltaT*1e-5) >= netlist[i].par7*(1+netlist[i].par8-netlist[i].par9))
+					(*curD).renovar=verdadeiro;
+				curD=(*curD).next;
 				break;
 			default:
 				g=netlist[i].par1;
@@ -596,45 +592,49 @@ int main(int argc, char* argv[])
 			Yn[netlist[i].a][nv+1]-=g;
 			Yn[netlist[i].b][nv+1]+=g;
 	}
+
 	else if (tipo=='V' || tipo=='L') {
 		if (tipo=='V'){
 			switch(netlist[i].fType){
 				case 'S':
-					g=netlist[i].par1+netlist[i].par2*(exp(-netlist[ne].par5*
+					if (time-netlist[i].par4 < 0.0 /*|| netlist[i].par*/)/*numCiclos*/
+						g=netlist[i].par1;
+					else
+						g=netlist[i].par1+netlist[i].par2*(exp(-netlist[ne].par5*
 					(time-netlist[ne].par4)))*sin(2*PI*(netlist[i].par3)*(time-
-					netlist[ne].par4)-((PI/180)*netlist[i].par6)); /*ver como incluir numCic*/
+					netlist[ne].par4)-((PI/180)*netlist[i].par6));
+					if
 					break;
 				case 'P':
 					if (i != (*curD).elNE){
 						printf("Um error interno ocorreu\n");
 						exit(1);
 					}
-					g=0;
-					if ((*curD).triggered){			/*revisar isso*/
-						if ((netlist[i].par3+netlist[i].par4+((netlist[i].par8-netlist[i].par9)*netlist[i].par7)) > time)
-							g=netlist[i].par1+(((netlist[i].par1-netlist[i].par2)/
-							netlist[i].par4)*(time-((netlist[i].par3)+((netlist[i].par8-netlist[i].par9)*netlist[i].par7))));
-						else if ((netlist[i].par3+netlist[i].par4+netlist[i].par6
-						+((netlist[i].par8-netlist[i].par9)*netlist[i].par7))>time)			/*talvez >=*/
-							g=netlist[i].par2;
-						else if ((netlist[i].par3+netlist[i].par4+netlist[i].par6+
-									netlist[i].par5+((netlist[i].par8-netlist[i].par9)*netlist[i].par7)) > time){ /*talvez >=*/
-							g=netlist[i].par2-(((netlist[i].par2-netlist[i].par1)/
-							netlist[i].par5)*(time-(netlist[i].par3+((netlist[i].par8-netlist[i].par9)*netlist[i].par7)
-							+netlist[i].par4+netlist[i].par6)));
-							if ((time+deltaT)>=(netlist[i].par3+netlist[i].par4+netlist[i].par6+
-								netlist[i].par5+((netlist[i].par8-netlist[i].par9)*netlist[i].par7))) goto renew2;
-						}
+					if (time-netlist[i].par3 >= 0.0 && netlist[i].par9>0){
+						double timeChecker=(*curD).internTimer-(netlist[i].par4+netlist[i].par7*(netlist[i].par8-netlist[i].par9));
+						if (timeChecker<timePrecision && timeChecker<-deltaT*1e-5)
+							g=netlist[i].par1+(((*curD).internTimer-netlist[i].par7*(netlist[i].par8-netlist[i].par9))*
+								((netlist[i].par2-netlist[i].par1)/netlist[i].par4));
 						else{
-							if (netlist[i].par3+(netlist[i].par7*(netlist[i].par8-netlist[i].par9))
-							> time || netlist[i].par9==0){
-								g=netlist[i].par1;					/*desligado fica na amplitude inicial*/
+							timeChecker=(*curD).internTimer-(netlist[i].par4+netlist[i].par6+
+							netlist[i].par7*(netlist[i].par8-netlist[i].par9));
+							if (timeChecker<=(timePrecision+(deltaT*1e-5)))
+								g=netlist[i].par2;
+							else{
+								timeChecker=(*curD).internTimer-(netlist[i].par4+netlist[i].par5+netlist[i].par6+
+								netlist[i].par7*(netlist[i].par8-netlist[i].par9));
+								if (timeChecker<=(timePrecision+(deltaT*1e-5)))
+										g=netlist[i].par2-(((*curD).internTimer-(netlist[i].par4+netlist[i].par6+netlist[i].par7*
+										(netlist[i].par8-netlist[i].par9)))*((netlist[i].par2-netlist[i].par1)/netlist[i].par5));
+								else
+									g=netlist[i].par1;
 							}
-							renew2:
-								(*curD).renovar=verdadeiro;
 						}
 					}
-					else g=netlist[i].par1;							/*desligado fica na amplitude inicial*/
+					else
+						g=netlist[i].par1;							/*desligado fica na amplitude inicial*/
+					if ((*curD).internTimer+deltaT+(deltaT*1e-5) >= netlist[i].par7*(1+netlist[i].par8-netlist[i].par9))
+						(*curD).renovar=verdadeiro;
 					curD=(*curD).next;
 					break;
 				default:
@@ -860,19 +860,12 @@ int main(int argc, char* argv[])
     exit(1);
   }
 
-/*	printf("(#%g)",time);*/
-	for (j=1; j<nv; j++)			/*newton raphson*/
-	{
-/*		if (j==1)
-			printf("\n\n%lg",Yn[j][nv+1]);
-		else
-			printf(" %lg",Yn[j][nv+1]);*/
-		if (nrValues[j]!=Yn[j][nv+1]){
-			needNR=verdadeiro;
-			nrValues[j]=Yn[j][nv+1];
-		}
-	}
-/*	printf("\n");*/
+	if (maxNR > 1)
+		for (j=1; j<nv; j++)			/*newton raphson*/
+			if (nrValues[j]!=Yn[j][nv+1]){
+				needNR=verdadeiro;
+				nrValues[j]=Yn[j][nv+1];
+			}
 
 	if (needNR)
 		goto newtonRaphson;
@@ -924,10 +917,15 @@ int main(int argc, char* argv[])
 			}
 			curD=firstD;
 			while (curD){
-				if ((*curD).renovar){
-					(*curD).triggered=falso;
+				if (netlist[(*curD).elNE].par3-time < 0)
+					(*curD).internTimer+=deltaT;
+				if ((*curD).renovar && (((*curD).internTimer /*>=*/- (netlist[(*curD).elNE].par7-deltaT)*(1+netlist[(*curD).elNE].par8-
+					netlist[(*curD).elNE].par9)) >= timePrecision)){
+					/*(*curD).triggered=falso;*/
+//					(*curD).internTimer=deltaT;
 					(*curD).renovar=falso;
 					netlist[(*curD).elNE].par9--;
+					printf("HURRAY\n");
 				}
 				curD=(*curD).next;
 			}
