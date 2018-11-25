@@ -30,7 +30,6 @@
 #define idMenuAbout 1001
 #define idMenuOpen 1002
 #define idMenuCalc 1003
-#define idMenuCalcN 1004
 
 ///////////////////////////////////////////////////////////////////////////////
 /// Class GUIFrame
@@ -46,8 +45,6 @@ class GUIFrame : public wxFrame
         void _wxFB_OnAbout( wxCommandEvent& event ){ OnAbout( event ); }
         void _wxFB_OnOpen( wxCommandEvent& event ){ OnOpen( event ); }
         void _wxFB_OnCalc( wxCommandEvent& event ){ OnCalc( event ); }
-        void _wxFB_OnCalcN( wxCommandEvent& event ){ OnCalcN( event ); }
-
 
     protected:
         wxMenuBar* mbar;
@@ -59,7 +56,6 @@ class GUIFrame : public wxFrame
         virtual void OnAbout( wxCommandEvent& event ){ event.Skip(); }
         virtual void OnOpen( wxCommandEvent& event ){ event.Skip(); }
         virtual void OnCalc( wxCommandEvent& event ){ event.Skip(); }
-        virtual void OnCalcN( wxCommandEvent& event ){ event.Skip(); }
 
 
     public:

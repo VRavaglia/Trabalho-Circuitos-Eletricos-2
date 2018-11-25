@@ -44,8 +44,6 @@ BEGIN_EVENT_TABLE( GUIFrame, wxFrame )
 
     EVT_MENU( idMenuCalc, GUIFrame::_wxFB_OnCalc )
 
-    EVT_MENU( idMenuCalcN, GUIFrame::_wxFB_OnCalcN )
-
 END_EVENT_TABLE()
 
 
@@ -117,13 +115,6 @@ GUIFrame::GUIFrame( wxWindow* parent, int id, wxString title, wxPoint pos, wxSiz
     wxMenuItem* menuCalcular = new wxMenuItem( simulMenu, idMenuCalc, wxString( wxT("&Calcular") ) + wxT('\t') + wxT("F9"), wxT("Calcula as tensoes e correntes no circuito fornecido"), wxITEM_NORMAL );
 
     simulMenu->Append( menuCalcular );
-
-
-
-    wxMenuItem* menuCalcularNovamente = new wxMenuItem( simulMenu, idMenuCalcN, wxString( wxT("&Repetir calculo anterior") ) + wxT('\t') + wxT("F10"), wxT("Refaz a ultima simulacao feita com os mesmos parametros"), wxITEM_NORMAL );
-
-    simulMenu->Append( menuCalcularNovamente );
-
 
 
     mbar->Append( simulMenu, wxT("&Simular") );

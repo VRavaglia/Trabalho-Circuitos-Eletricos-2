@@ -139,22 +139,7 @@ void Interface4Frame::OnAbout(wxCommandEvent &event)
 void Interface4Frame::OnOpen(wxCommandEvent &event)
 {
 
-    wxString file = this->i_abrir();
-}
-
-
-//Ao clicar no botao "calcular novamente" inicia-se o processo de simulacao
-void Interface4Frame::OnCalcN(wxCommandEvent &event){
-
-    //Checa se uma simulacao ja foi feita
-    if (nome_arquivo.empty()){
-        i_erro("Nenhuma simulacao foi feita ainda");
-        return;
-    }
-
-    //Limpa a tela e inicia uma simulacao com os parametros anteriores
-    console->Clear();
-    calculo(nome_arquivo.mb_str(), *this, tempo_final, delta_t, p_op_ou_c_ini);
+    nome_arquivo = this->i_abrir();
 }
 
 //Ao clicar no botao "calcular" inicia-se o processo de simulacao
@@ -165,47 +150,11 @@ void Interface4Frame::OnCalc(wxCommandEvent &event)
         nome_arquivo = this->i_abrir();
     }
 
-    //Pede os parametros necessarios para a simulacao
-    //Primeiramente, exibe uma caixa de dialogo para receber o tempo inicial
 
-    //Exibe uma caixa de dialogo para receber o tempo final
-    wxTextEntryDialog inputDialog2(this, _("Entre com o tempo final da simulacao:"), _("Simulacao"));
-    if (inputDialog2.ShowModal() != wxID_OK) {
-        i_erro("Tempo inserido invalido.");
-        return;
-    }
-
-     //Exibe uma caixa de dialogo para receber o tamanho do passo
-    wxTextEntryDialog inputDialog3(this, _("Entre com tamanho do passo temporal:"), _("Simulacao"));
-    if (inputDialog3.ShowModal() != wxID_OK) {
-        i_erro("Tempo inserido invalido.");
-        return;
-    }
-
-     //Exibe uma caixa de dialogo com as opcoes de inicializacoes possiveis para que uma seja escolhida
-    wxString escolhas_inicializacao[] = {_("Ponto de Operacao"), _("Condicoes Iniciais")};
-
-    //Checa se alguma opcao foi selecionada
-    wxSingleChoiceDialog  inputDialog4(this, _("Selecione o tipo de inicializacao da simulacao"), _("Simulacao"), 2, escolhas_inicializacao);
-    if (inputDialog4.ShowModal() != wxID_OK) {
-        i_erro("Tipo de inicializacao nao selecionado");
-        return;
-    }
-
-    //A partir dos dialogos, gera os parametros que vao ser passados como argumentos pra funcao principal
-    if (inputDialog4.GetSelection() == 1){
-        p_op_ou_c_ini = false;
-    }
-    else{
-        p_op_ou_c_ini = true;
-    }
-
-    tempo_final = atof(inputDialog2.GetValue().mb_str());
-    delta_t = atof(inputDialog3.GetValue().mb_str());
 
     //Limpa o console e exibe uma lista dos parametros escolhidos
     console->Clear();
 
     //Inicia a simulacao de fato chamando a funcao principal contida no MNA1 modificado
-    calculo(nome_arquivo.mb_str(), *this, tempo_final, delta_t, p_op_ou_c_ini);
+    calculo(nome_arquivo.mb_str(), *this);
 }

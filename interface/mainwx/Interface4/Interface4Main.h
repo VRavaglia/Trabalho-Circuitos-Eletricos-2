@@ -37,7 +37,6 @@ class Interface4Frame: public GUIFrame
         virtual void OnAbout(wxCommandEvent& event);
         virtual void OnOpen(wxCommandEvent& event);
         virtual void OnCalc(wxCommandEvent& event);
-        virtual void OnCalcN(wxCommandEvent& event);
 };
 
 #endif // INTERFACE4MAIN_H

@@ -37,10 +37,12 @@ Os nos podem ser nomes
 */
 
 #define versao "1.0k - 15/08/2018"
+#include <iostream>
+
+#include <string>
 #include <stdio.h>
 
 /*#include <conio.h>*/
-
 #include "Interface4Main.h"
 
 #include <string.h>
@@ -56,12 +58,16 @@ Os nos podem ser nomes
 #define STDDETAT 0.1
 /*#define NUMINTER 20*/
 #define PI 3.14159265359
-#define MAXNR 150					/*maximo de interacoes permitidas no
+#define MAXNR 50					/*maximo de interacoes permitidas no
 										newton-raphson*/
+
+
+using namespace std;
 
 typedef struct elemento { /* Elemento do netlist */
 	char nome[MAX_NOME],fType;		/*fType usado apenas por fontes*/
-	double par1, par2, par3, par4, par5, par6, par7, par8;
+	double par1, par2, par3, par4, par5, par6, par7;
+	unsigned par8, par9; /*numero de ciclos*/
 	/*parametros na ordem em que aparecem na netlist*/
 	int a,b,c,d,x,y;			/*nos (x,y sao para controle)*/
 	struct elemento *auxComp;/*auxComp utilizado apenas por FF para
@@ -77,9 +83,23 @@ typedef struct tVarCell{
 typedef struct dDCell{
 	int elNE;					/*guarda o numero da fonte que varia no tempo (nao
 										senoidal*/
+	double internTimer;
 	struct dDCell *next;
-	bool triggered;
+	bool triggered,renovar;
 } dDCell;
+
+typedef struct dSCell{	/*guarda o numero da fonte senoidal*/
+	int elNE;
+	double curPer;
+	struct dSCell *next;
+} dSCell;
+
+typedef struct mCell{	/*guarda quando o monoestavel deve ser desligado*/
+	int elNE;
+	double turnDown;
+	struct mCell *next;
+	bool up;
+} mCell;
 
 elemento netlist[MAX_ELEM+1]; /* Netlist */
 
@@ -89,7 +109,7 @@ int
   nn, /* Nos */
   i,j,k;
 
-bool needBE= false;
+bool needBE=false;
 
 char
 /* Foram colocados limites nos formatos de leitura para alguma protecao
@@ -104,7 +124,7 @@ char
 FILE *arquivo,*tabela;
 
 double
-	deltaT=STDDETAT,
+	deltaT=0.0,
 	g,
 	Yn[MAX_NOS+1][MAX_NOS+2];
 
@@ -170,79 +190,51 @@ int numero(char *nome, Interface4Frame& frame)
   }
 }
 
-int calculo(const char *caminho_netlist, Interface4Frame &frame, double i_tFinal, double i_deltaT, bool i_pontoOp)
+int calculo(const char *caminho_netlist, Interface4Frame &frame)
 {
 	int iTemp=0;											/*guarda o numero de interacoes no tempo*/
-	unsigned iNR=0,j;						/*guarda o numero de interacoes
-											newton raphson*/
-	double time,lastTime=0.0,tFinal;
-	tVarCell *first, *cur,*aux;
+	unsigned iNR=0,maxNR=0, j;	/*guarda o numero de interacoes
+															newton raphson*/
+	double time,lastTime=0.0,tFinal=0.0,timePrecision;
+	tVarCell *first, *cur, *aux;
 	dDCell *firstD, *curD, *auxD, *earlier;
-	char string[MAX_NOME+1],nomeTabela[MAX_NOME+1];
+	dSCell *firstS, *curS, *auxS;
+	mCell *firstM, *curM, *auxM;
+	char string[MAX_NOME+1],icOpo[MAX_NOME+1];
+
 	double *nrValues,*lastValues,*lastLastValues;/*guarda os valores
 																anteriores/ultima
 												interacao para o uso do metodo a analise
 												de newton raphson respectivamente*/
-	bool operationPoint=false,needNR=false;
+	bool operationPoint=true,needNR=false;
 
 	first=(tVarCell *) NULL;
 	firstD=(dDCell *) NULL;
+	firstS=(dSCell *) NULL;
+	firstM=(mCell *) NULL;
 
-    frame.i_printf("Programa demonstrativo de analise nodal modificada\n");
-    frame.i_printf("Por Antonio Carlos M. de Queiroz - acmq@coe.ufrj.br\n");
-    frame.i_printf("Versao %s\n",versao);
+  frame.i_printf("Programa demonstrativo de analise nodal modificada\n");
+  frame.i_printf("Por Antonio Carlos M. de Queiroz - acmq@coe.ufrj.br\n");
+  frame.i_printf("Versao %s\n",versao);
 
-    arquivo = fopen(caminho_netlist, "r");
+  /* Leitura do netlist */
+  ne=0; nv=0; strcpy(lista[0],"0");
 
-    if (arquivo == NULL) {
+	arquivo = fopen(caminho_netlist, "r");
+
+  if (arquivo == NULL) {
 
     frame.i_erro("Erro ao ler o arquivo");
 
     return -1;
 
   }
+    std::string nomeTabela ="";
 
-    ne=0; nv=0; strcpy(lista[0],"0");
-
-	strcpy(nomeTabela,nomearquivo);
-	p=(char *) nomeTabela+strlen(nomeTabela);
-	while (*(p) != '.') --p;
-	*(++p)='t';*(++p)='a';*(++p)='b';*(++p)='\0';		/*escreve tab no final*/
-	tabela=fopen(nomeTabela,"w");
-
-	/*
-	if (argc>2){
-		if (argv[2][0] >= '0' && argv[2][0] <= '9')
-			sscanf(argv[2],"%lg", &tFinal);
-		else
-			goto tempFinal;
-	}
-	else{
-		tempFinal:
-			printf("Insira o tempo final: ");
-			scanf("%lg", &tFinal);
-	}
-	if (argc>3){
-		if (argv[3][0] >= '0' && argv[3][0] <= '9')
-			sscanf(argv[3],"%lg", &deltaT);
-		else
-			goto delT;
-	}
-	else{
-		delT:
-				printf("Insira o tamanho dos passos: ", &deltaT);
-				scanf("%lg", &deltaT);
-	}
-	if (argc>4)
-		if (toupper(argv[4][0]) == 'P' || toupper(argv[4][0]) == 'O')
-			operationPoint=true;		/*o padrao eh ponto de operacao*/
-
-
-    tFinal = i_tFinal;
-    deltaT = i_deltaT;
-    operationPoint = i_pontoOp;
-
-    time=-deltaT;
+	nomeTabela = caminho_netlist;
+	nomeTabela = nomeTabela.substr(0, nomeTabela.size() - 3);
+	nomeTabela = nomeTabela + "tab";
+	tabela=fopen(nomeTabela.c_str(),"w");
 
   frame.i_printf("Lendo netlist:\n");
   fgets(txt,MAX_LINHA,arquivo);
@@ -264,21 +256,35 @@ int calculo(const char *caminho_netlist, Interface4Frame &frame, double i_tFinal
 			netlist[ne].fType=toupper(string[0]);
 			switch (netlist[ne].fType){
 				case 'S':
-					if (!needBE) needBE=true;
-					sscanf(p, "%10s%10s%10s%lg%lg%lg%lg%lg%lg%lg",na,nb,string,
+					sscanf(p, "%10s%10s%10s%lg%lg%lg%lg%lg%lg%u",na,nb,string,
 						&netlist[ne].par1,&netlist[ne].par2,&netlist[ne].par3,
 						&netlist[ne].par4,&netlist[ne].par5,&netlist[ne].par6,
-						&netlist[ne].par7);
-					printf("%s %s %s %s %g %g %g %g %g %g %g\n", netlist[ne].nome,na,nb,
+						&netlist[ne].par8);
+					frame.i_printf("%s %s %s %s %g %g %g %g %g %g %u\n", netlist[ne].nome,na,nb,
 					string,netlist[ne].par1,netlist[ne].par2,netlist[ne].par3,
-					netlist[ne].par4,netlist[ne].par5,netlist[ne].par6,netlist[ne].par7);
+					netlist[ne].par4,netlist[ne].par5,netlist[ne].par6,netlist[ne].par8);
+					netlist[ne].par9=netlist[ne].par8;
+					if (!needBE) needBE=true;
+					curS = (dSCell *) malloc(sizeof(dSCell));
+					(*curS).elNE=ne;
+					(*curS).next=(dSCell *) NULL;
+					(*curS).curPer=netlist[ne].par4+(1/netlist[ne].par3);
+					if (!firstS) firstS=curS;
+					else{
+						auxS=firstS;
+						while((*auxS).next) auxS=(*auxS).next;
+						(*auxS).next=curS;
+					}
+					curS=firstS;
 					break;
 				case 'P':
 					if (!needBE) needBE=true;
 					curD = (dDCell *) malloc(sizeof(dDCell));
 					(*curD).elNE=ne;
-					(*curD).next= (dDCell *) NULL;
+					(*curD).next=(dDCell *) NULL;
+					(*curD).internTimer=0.0;
 					(*curD).triggered=false;
+					(*curD).renovar=false;
 					if (!firstD) firstD=curD;
 					else{
 						auxD=firstD;
@@ -286,23 +292,24 @@ int calculo(const char *caminho_netlist, Interface4Frame &frame, double i_tFinal
 						(*auxD).next=curD;
 					}
 					curD=firstD;
-					sscanf(p, "%10s%10s%10s%lg%lg%lg%lg%lg%lg%lg%lg",na,nb,string,
+					sscanf(p, "%10s%10s%10s%lg%lg%lg%lg%lg%lg%lg%u",na,nb,string,
 							&netlist[ne].par1,&netlist[ne].par2,&netlist[ne].par3,
 							&netlist[ne].par4,&netlist[ne].par5,&netlist[ne].par6,
 							&netlist[ne].par7,&netlist[ne].par8);
-					printf("%s %s %s %s %g %g %g %g %g %g %g %g\n", netlist[ne].nome,na,nb,
+					frame.i_printf("%s %s %s %s %g %g %g %g %g %g %g %u\n", netlist[ne].nome,na,nb,
 						string,netlist[ne].par1,netlist[ne].par2,netlist[ne].par3,
 						netlist[ne].par4,netlist[ne].par5,netlist[ne].par6,
 						netlist[ne].par7,netlist[ne].par8);
+						netlist[ne].par9=netlist[ne].par8;
 					break;
 				default:
 					sscanf(p,"%10s%10s%10s%lg",na,nb,string,&netlist[ne].par1);
-					printf("%s %s %s %s %g\n",netlist[ne].nome,na,nb,string,netlist[ne].par1);
+					frame.i_printf("%s %s %s %s %g\n",netlist[ne].nome,na,nb,string,netlist[ne].par1);
 			}
 		}
 		else{
 			sscanf(p,"%10s%10s%lg",na,nb,&netlist[ne].par1);
-			printf("%s %s %g\n",netlist[ne].nome,na,nb,netlist[ne].par1);
+			frame.i_printf("%s %s %g\n",netlist[ne].nome,na,nb,netlist[ne].par1);
 		}
       netlist[ne].a=numero(na, frame);
       netlist[ne].b=numero(nb, frame);
@@ -344,7 +351,7 @@ int calculo(const char *caminho_netlist, Interface4Frame &frame, double i_tFinal
 		netlist[ne].c=numero(nc, frame);
 	}
 	else if (tipo=='%'){/*flip-flop*/
-		char *auxComp;
+		char auxComp[MAX_NOME];
 		sscanf(p,"%10s%10s%10s%10s%10s%lg%lg%lg",na,nb,nc,nd,
 				auxComp,&netlist[ne].par1,&netlist[ne].par2,
 				&netlist[ne].par3);
@@ -356,8 +363,32 @@ int calculo(const char *caminho_netlist, Interface4Frame &frame, double i_tFinal
 		netlist[ne].c=numero(nc, frame);
 		netlist[ne].d=numero(nd, frame);
 		netlist[nv].auxComp= (elemento *) NULL;
-		for(i=0; i<ne; i++)
-			if (!strcmp(auxComp,netlist[i].nome)) netlist[nv].auxComp=&netlist[i];
+		for(i=0; i<ne; i++){
+			if (!strcmp(auxComp,netlist[i].nome))
+				netlist[nv].auxComp= (elemento *) &netlist[i];
+		}
+	}
+	else if (tipo=='@'){/*monoestavel*/
+		sscanf(p,"%10s%10s%10s%10s%lg%lg%lg%lg",na,nb,nc,nd,
+				&netlist[ne].par1,&netlist[ne].par2,&netlist[ne].par3,
+				&netlist[ne].par4);
+		(*curM).elNE=ne;
+		(*curM).next=(mCell *) NULL;
+		(*curM).up=false;
+		if (!firstM) firstM=curM;
+		else{
+			auxM=firstM;
+			while((*auxM).next) auxM=(*auxM).next;
+			(*auxM).next=curM;
+		}
+		curM=firstM;
+		frame.i_printf("%s %s %s %s %g %g %g %g\n",netlist[ne].nome,na,nb,nc,nd,
+				netlist[ne].par1,netlist[ne].par2,netlist[ne].par3,
+				netlist[ne].par4);
+		netlist[ne].a=numero(na, frame);
+		netlist[ne].b=numero(nb, frame);
+		netlist[ne].c=numero(nc, frame);
+		netlist[ne].d=numero(nd, frame);
 	}
 	else if (tipo=='!'){
 		sscanf(p,"%10s%10s%lg%lg",na,nb,&netlist[ne].par1,&netlist[ne].par2);
@@ -373,6 +404,17 @@ int calculo(const char *caminho_netlist, Interface4Frame &frame, double i_tFinal
       netlist[ne].c=numero(nc, frame);
       netlist[ne].d=numero(nd, frame);
     }
+	else if (tipo=='.'){
+		char analysisTipe[MAX_NOME];
+		strcpy(icOpo,"\0");
+		sscanf(p,"%lg%lg%10s%u%10s",&tFinal,&deltaT,analysisTipe,&maxNR,icOpo);
+		if (strlen(icOpo))
+			if (toupper(icOpo[1]=='I'))
+				operationPoint=false;
+		frame.i_printf("%s %g %g %s %u %s\n",netlist[ne].nome,tFinal,deltaT,analysisTipe,
+												maxNR,icOpo);
+		ne--;
+	}
     else if (tipo=='*') { /* Comentario comeca com "*" */
       frame.i_printf("Comentario: %s",txt);
       ne--;
@@ -384,6 +426,55 @@ int calculo(const char *caminho_netlist, Interface4Frame &frame, double i_tFinal
     }
   }
   fclose(arquivo);
+	if (tFinal==0.0){
+		//Pede os parametros necessarios para a simulacao
+		//Primeiramente, exibe uma caixa de dialogo para receber o tempo inicial
+
+		//Exibe uma caixa de dialogo para receber o tempo final
+		wxTextEntryDialog inputDialog2(&frame, _("Entre com o tempo final da simulacao:"), _("Simulacao"));
+		if (inputDialog2.ShowModal() != wxID_OK) {
+				frame.i_erro("Tempo inserido invalido.");
+				return -1;
+		}
+
+			//Exibe uma caixa de dialogo para receber o tamanho do passo
+		wxTextEntryDialog inputDialog3(&frame, _("Entre com tamanho do passo temporal:"), _("Simulacao"));
+		if (inputDialog3.ShowModal() != wxID_OK) {
+				frame.i_erro("Tempo inserido invalido.");
+				return -1;
+		}
+
+		//Exibe uma caixa de dialogo para receber o numero de passos no NR
+		wxTextEntryDialog inputDialog4(&frame, _("Entre com o numero de passos por ponto na tabela:"), _("Simulacao"));
+		if (inputDialog4.ShowModal() != wxID_OK) {
+				frame.i_erro("Numero inserido invalido.");
+				return -1;
+		}
+
+			//Exibe uma caixa de dialogo com as opcoes de inicializacoes possiveis para que uma seja escolhida
+		wxString escolhas_inicializacao[] = {_("Ponto de Operacao"), _("Condicoes Iniciais")};
+
+		//Checa se alguma opcao foi selecionada
+		wxSingleChoiceDialog  inputDialog1(&frame, _("Selecione o tipo de inicializacao da simulacao"), _("Simulacao"), 2, escolhas_inicializacao);
+		if (inputDialog1.ShowModal() != wxID_OK) {
+				frame.i_erro("Tipo de inicializacao nao selecionado");
+				return -1;
+		}
+
+		//A partir dos dialogos, gera os parametros que vao ser passados como argumentos pra funcao principal
+		if (inputDialog1.GetSelection() == 1){
+				operationPoint = false;
+		}
+		else{
+				operationPoint = true;
+		}
+
+		tFinal = atof(inputDialog2.GetValue().mb_str());
+		deltaT = atof(inputDialog3.GetValue().mb_str());
+		maxNR = atof(inputDialog4.GetValue().mb_str());
+	}
+	time=-deltaT;
+	timePrecision=deltaT/2;
   /* Acrescenta variaveis de corrente acima dos nos, anotando no netlist */
   nn=nv;
   for (i=1; i<=ne; i++) {
@@ -391,7 +482,7 @@ int calculo(const char *caminho_netlist, Interface4Frame &frame, double i_tFinal
     if (tipo=='V' || tipo=='E' || tipo=='F' || tipo=='O' || tipo=='L') {
       nv++;
       if (nv>MAX_NOS) {
-        frame.i_erro("As correntes extra excederam o numero de variaveis permitido (%d)\n",MAX_NOS);
+        frame.i_printf("As correntes extra excederam o numero de variaveis permitido (%d)\n",MAX_NOS);
         exit(1);
       }
       strcpy(lista[nv],"j"); /* Tem espaco para mais dois caracteres */
@@ -401,7 +492,7 @@ int calculo(const char *caminho_netlist, Interface4Frame &frame, double i_tFinal
     else if (tipo=='H') {
       nv=nv+2;
       if (nv>MAX_NOS) {
-        frame.i_erro("As correntes extra excederam o numero de variaveis permitido (%d)\n",MAX_NOS);
+        frame.i_printf("As correntes extra excederam o numero de variaveis permitido (%d)\n",MAX_NOS);
         exit(1);
       }
       strcpy(lista[nv-1],"jx"); strcat(lista[nv-1],netlist[i].nome);
@@ -412,8 +503,7 @@ int calculo(const char *caminho_netlist, Interface4Frame &frame, double i_tFinal
   }
 	itsCur:
 
-  /* Lista tudo *//*falta colocar as portas*/
- frame.i_printf("Variaveis internas: \n");
+  frame.i_printf("Variaveis internas: \n");
   for (i=0; i<=nv; i++)
     frame.i_printf("%d -> %s\n",i,lista[i]);
 
@@ -431,7 +521,7 @@ int calculo(const char *caminho_netlist, Interface4Frame &frame, double i_tFinal
 		}
 		else if (netlist[i].fType=='P'){
 			strcpy(string,"PULSE");
-			frame.i_printf("%s %d %d %s %g %g %g %g %g %g %g %g\n", netlist[i].nome,netlist[i].a,
+			frame.i_printf("%s %d %d %s %g %g %g %g %g %g %g %u\n", netlist[i].nome,netlist[i].a,
 			netlist[i].b,string,netlist[i].par1,netlist[i].par2,netlist[i].par3,
 			netlist[i].par4,netlist[i].par5,netlist[i].par6, netlist[i].par7,
 			netlist[i].par8);
@@ -473,27 +563,23 @@ int calculo(const char *caminho_netlist, Interface4Frame &frame, double i_tFinal
 
 	buildSys:
 	time+=deltaT;
+
+	curD=firstD;
+	while(curD){
+		if (((netlist[(*curD).elNE].par3) <= time) &&
+			!((*curD).triggered)){
+				(*curD).triggered=true;
+				(*curD).internTimer=deltaT+(time-netlist[(*curD).elNE].par3);
+		}
+		curD=(*curD).next;
+	}
+
 	newtonRaphson:
 	needNR=false;
 
 	if (++iNR>MAXNR){
-		printf("Sistema n„o convergiu\n");
+		frame.i_printf("Sistema n√£o convergiu\n");
 		goto endProg;
-	}
-
-	{
-		earlier = curD = (dDCell *) NULL;
-
-		if (firstD) curD=firstD;
-		while(curD){
-			if (((netlist[(*curD).elNE].par3) <= time) &&
-				!((*curD).triggered)){
-					time= (double) netlist[(*curD).elNE].par3;
-					earlier=curD;
-			}
-			curD=(*curD).next;
-		}
-		if (earlier) (*earlier).triggered=true;
 	}
 
 
@@ -510,6 +596,9 @@ int calculo(const char *caminho_netlist, Interface4Frame &frame, double i_tFinal
 	}
   /* Monta estampas */
 	if (firstD) curD=firstD;
+	if (firstS) curS=firstS;
+	if (firstM) curM=firstM;
+
   for (i=1; i<=ne; i++) {
 
 		tipo=netlist[i].nome[0];
@@ -531,7 +620,7 @@ int calculo(const char *caminho_netlist, Interface4Frame &frame, double i_tFinal
 		Yn[netlist[i].a][netlist[i].b]-=g;
 		Yn[netlist[i].b][netlist[i].a]-=g;
 		if (tipo=='C'){
-			g=(netlist[i].par2/g);	/*verificar*/
+			g=-(g*netlist[i].par2);	/*verificar*/
 	 		goto insertCur;
 		}
 	}
@@ -545,9 +634,17 @@ int calculo(const char *caminho_netlist, Interface4Frame &frame, double i_tFinal
 	else if (tipo=='I') {
 		switch(netlist[i].fType){
 			case 'S':
-				g=netlist[i].par1+netlist[i].par2*(exp(-netlist[ne].par5*
+				if (i != (*curS).elNE){
+					frame.i_erro("Um error interno ocorreu\n");
+					exit(1);
+				}
+				if (time-netlist[i].par4 < 0.0|| netlist[i].par8 == 0)/*numCiclos*/
+					g=netlist[i].par1;
+				else
+					g=netlist[i].par1+netlist[i].par2*(exp(-netlist[ne].par5*
 				(time-netlist[ne].par4)))*sin(2*PI*(netlist[i].par3)*(time-
-				netlist[ne].par4)-((PI/180)*netlist[i].par6)); /*ver como incluir numCic*/
+				netlist[ne].par4)-((PI/180)*netlist[i].par6));
+				curS=(*curS).next;
 				break;
 			case 'P':
 				if (i != (*curD).elNE){
@@ -555,36 +652,32 @@ int calculo(const char *caminho_netlist, Interface4Frame &frame, double i_tFinal
 					exit(1);
 				}
 				g=0;
-				if ((*curD).triggered){			/*revisar isso*/
-					if (netlist[i].par3+netlist[i].par4 > time)
-						g=netlist[i].par1+(((netlist[i].par1-netlist[i].par2)/
-						netlist[i].par4)*(time-netlist[i].par3));
-					else if (netlist[i].par3+netlist[i].par4+netlist[i].par6 >=
-								time)
-						g=netlist[i].par2;
-					else if (netlist[i].par3+netlist[i].par4+netlist[i].par6+
-								netlist[i].par5 >= time){
-						g=netlist[i].par2-(((netlist[i].par2-netlist[i].par1)/
-						netlist[i].par5)*(time-(netlist[i].par3+netlist[i].par4+
-						netlist[i].par6)));
-						if (time==netlist[i].par3+netlist[i].par4+netlist[i].par6+
-							netlist[i].par5) goto renew;
-					}
+				if (time-netlist[i].par3 >= 0.0 && netlist[i].par9>0){
+					double timeChecker=(*curD).internTimer-(netlist[i].par4+netlist[i].par7*(netlist[i].par8-netlist[i].par9));
+					if (timeChecker<timePrecision && timeChecker<-deltaT*1e-5)
+						g=netlist[i].par1+(((*curD).internTimer-netlist[i].par7*(netlist[i].par8-netlist[i].par9))*
+							((netlist[i].par2-netlist[i].par1)/netlist[i].par4));
 					else{
-						if (netlist[i].par3+netlist[i].par7 > time || netlist[i].par8==0){
-							(*curD).triggered=false;
-							g=netlist[i].par1;					/*desligado fica na amplitude inicial*/
+						timeChecker=(*curD).internTimer-(netlist[i].par4+netlist[i].par6+
+						netlist[i].par7*(netlist[i].par8-netlist[i].par9));
+						if (timeChecker<=(timePrecision+(deltaT*1e-5)))
+							g=netlist[i].par2;
+						else{
+							timeChecker=(*curD).internTimer-(netlist[i].par4+netlist[i].par5+netlist[i].par6+
+							netlist[i].par7*(netlist[i].par8-netlist[i].par9));
+							if (timeChecker<=(timePrecision+(deltaT*1e-5)))
+									g=netlist[i].par2-(((*curD).internTimer-(netlist[i].par4+netlist[i].par6+netlist[i].par7*
+									(netlist[i].par8-netlist[i].par9)))*((netlist[i].par2-netlist[i].par1)/netlist[i].par5));
+							else
+								g=netlist[i].par1;
 						}
-						renew:
-							netlist[i].par3+=netlist[i].par7;
-							if (netlist[i].par8 > 0) netlist[i].par8--;
 					}
-					curD=(*curD).next;
 				}
-				else{
+				else
 					g=netlist[i].par1;							/*desligado fica na amplitude inicial*/
-					curD=(*curD).next;			/*sera*/
-				}
+				if ((*curD).internTimer+deltaT+(deltaT*1e-5) >= netlist[i].par7*(1+netlist[i].par8-netlist[i].par9))
+					(*curD).renovar=true;
+				curD=(*curD).next;
 				break;
 			default:
 				g=netlist[i].par1;
@@ -593,46 +686,53 @@ int calculo(const char *caminho_netlist, Interface4Frame &frame, double i_tFinal
 			Yn[netlist[i].a][nv+1]-=g;
 			Yn[netlist[i].b][nv+1]+=g;
 	}
+
 	else if (tipo=='V' || tipo=='L') {
 		if (tipo=='V'){
 			switch(netlist[i].fType){
-				case 'S':
-					g=netlist[i].par1+netlist[i].par2*(exp(-netlist[ne].par5*
-					(time-netlist[ne].par4)))*sin(2*PI*(netlist[i].par3)*(time-
-					netlist[ne].par4)-((PI/180)*netlist[i].par6)); /*ver como incluir numCic*/
+					case 'S':
+					if (i != (*curS).elNE){
+						frame.i_erro("Um error interno ocorreu\n");
+						exit(1);
+					}
+					if (time-netlist[i].par4 < 0.0 || netlist[i].par8 == 0)/*numCiclos*/
+						g=netlist[i].par1;
+					else
+						g=netlist[i].par1+netlist[i].par2*(exp(-netlist[ne].par5*
+						(time-netlist[ne].par4)))*sin(2*PI*(netlist[i].par3)*(time-
+						netlist[ne].par4)-((PI/180)*netlist[i].par6));
+					curS=(*curS).next;
 					break;
 				case 'P':
 					if (i != (*curD).elNE){
 						frame.i_erro("Um error interno ocorreu\n");
 						exit(1);
 					}
-					g=0;
-					if ((*curD).triggered){			/*revisar isso*/
-						if (netlist[i].par3+netlist[i].par4 > time)
-							g=netlist[i].par1+(((netlist[i].par1-netlist[i].par2)/
-							netlist[i].par4)*(time-netlist[i].par3));
-						else if (netlist[i].par3+netlist[i].par4+netlist[i].par6 >=
-									time)
-							g=netlist[i].par2;
-						else if (netlist[i].par3+netlist[i].par4+netlist[i].par6+
-									netlist[i].par5 >= time){
-							g=netlist[i].par2-(((netlist[i].par2-netlist[i].par1)/
-							netlist[i].par5)*(time-(netlist[i].par3+netlist[i].par4+
-							netlist[i].par6)));
-							if (time==netlist[i].par3+netlist[i].par4+netlist[i].par6+
-								netlist[i].par5) goto renew2;
-						}
+					if (time-netlist[i].par3 >= 0.0 && netlist[i].par9>0){
+						double timeChecker=(*curD).internTimer-(netlist[i].par4+netlist[i].par7*(netlist[i].par8-netlist[i].par9));
+						if (timeChecker<timePrecision && timeChecker<-deltaT*1e-5)
+							g=netlist[i].par1+(((*curD).internTimer-netlist[i].par7*(netlist[i].par8-netlist[i].par9))*
+								((netlist[i].par2-netlist[i].par1)/netlist[i].par4));
 						else{
-							if (((netlist[i].par3+netlist[i].par7) > time) ||
-							netlist[i].par8==0) g=netlist[i].par1;
-							/*desligado fica na amplitude inicial*/
-							renew2:
-								(*curD).triggered=false;
-								netlist[i].par3+=netlist[i].par7;
-								if (netlist[i].par8 > 0) netlist[i].par8--;
+							timeChecker=(*curD).internTimer-(netlist[i].par4+netlist[i].par6+
+							netlist[i].par7*(netlist[i].par8-netlist[i].par9));
+							if (timeChecker<=(timePrecision+(deltaT*1e-5)))
+								g=netlist[i].par2;
+							else{
+								timeChecker=(*curD).internTimer-(netlist[i].par4+netlist[i].par5+netlist[i].par6+
+								netlist[i].par7*(netlist[i].par8-netlist[i].par9));
+								if (timeChecker<=(timePrecision+(deltaT*1e-5)))
+										g=netlist[i].par2-(((*curD).internTimer-(netlist[i].par4+netlist[i].par6+netlist[i].par7*
+										(netlist[i].par8-netlist[i].par9)))*((netlist[i].par2-netlist[i].par1)/netlist[i].par5));
+								else
+									g=netlist[i].par1;
+							}
 						}
 					}
-					else g=netlist[i].par1;							/*desligado fica na amplitude inicial*/
+					else
+						g=netlist[i].par1;							/*desligado fica na amplitude inicial*/
+					if ((*curD).internTimer+deltaT+(deltaT*1e-5) >= netlist[i].par7*(1+netlist[i].par8-netlist[i].par9))
+						(*curD).renovar=true;
 					curD=(*curD).next;
 					break;
 				default:
@@ -665,17 +765,13 @@ int calculo(const char *caminho_netlist, Interface4Frame &frame, double i_tFinal
 		switch (tipo) {
 			case (')'):
 			case ('('):
-/**/				voltage1=lastValues[netlist[i].a];
-				voltage2=lastValues[netlist[i].b];/**/
-/*			voltage1=nrValues[netlist[i].a];
-				voltage2=nrValues[netlist[i].b];*/
+				voltage1=lastValues[netlist[i].a];
+				voltage2=lastValues[netlist[i].b];
 				break;
 			case ('{'):
 			case ('}'):
-/**/				voltage1=lastValues[netlist[i].b];
-				voltage2=lastValues[netlist[i].a];/**/
-/*				voltage1=nrValues[netlist[i].a];
-				voltage2=nrValues[netlist[i].b];*/
+				voltage1=lastValues[netlist[i].b];
+				voltage2=lastValues[netlist[i].a];
 				break;
 		}
 		switch (tipo){
@@ -689,7 +785,7 @@ int calculo(const char *caminho_netlist, Interface4Frame &frame, double i_tFinal
 				}
 				else{
 					vX=(netlist[i].par1/2)-(netlist[i].par4*(nrValues[
-					netlist[i].c]-(netlist[i].par1/2)));/*c == a*/
+					netlist[i].a]-(netlist[i].par1/2)));/*c==a*/
 					a1=-netlist[i].par4;
 					a2=0.0;							/*talvez mude*/
 				}
@@ -709,14 +805,14 @@ int calculo(const char *caminho_netlist, Interface4Frame &frame, double i_tFinal
 				if (voltage1>voltage2){
 					vX=(netlist[i].par1/2)+(netlist[i].par4*(nrValues[
 					netlist[i].b]-(netlist[i].par1/2)));
-					a1=netlist[i].par4;
-					a2=0.0;							/*talvez mude*/
+					a1=0.0;							/*talvez mude*/
+					a2=netlist[i].par4;
 				}
 				else{
 					vX=(netlist[i].par1/2)+(netlist[i].par4*(nrValues[
-					netlist[i].a]-(netlist[i].par1/2)));
-					a1=0.0;							/*talvez mude*/
-					a2=netlist[i].par4;
+					netlist[i].a]-(netlist[i].par1/2)));/*c==a*/
+					a1=netlist[i].par4;
+					a2=0.0;							/*talvez mude*/
 				}
 				if (vX>netlist[i].par1){
 					vOut=netlist[i].par1;
@@ -733,9 +829,9 @@ int calculo(const char *caminho_netlist, Interface4Frame &frame, double i_tFinal
 		g=1/netlist[i].par2;
 		Yn[netlist[i].c][netlist[i].c]+=g;
 		Yn[netlist[i].c][nv+1]+=g*vOut;
-		Yn[netlist[i].c][netlist[i].a]+=g*a1;
-		Yn[netlist[i].c][netlist[i].b]+=g*a2;
-		/*acrescentar os capacitores para terra*/
+		Yn[netlist[i].c][netlist[i].a]-=g*a1;			/*+?*/
+		Yn[netlist[i].c][netlist[i].b]-=g*a2;			/*+?*/
+		/*acrescentar os capacitores de entrada*/
 		if (time==0.0){
 			if (operationPoint)
 				g=netlist[i].par3/1e10;
@@ -744,7 +840,12 @@ int calculo(const char *caminho_netlist, Interface4Frame &frame, double i_tFinal
 		}
 		else
 			g=netlist[i].par3/deltaT;
-		Yn[netlist[i].c][netlist[i].c]+=g;
+		Yn[netlist[i].a][netlist[i].a]+=g;
+		Yn[netlist[i].b][netlist[i].b]+=g;
+		g=(g*lastValues[netlist[i].a]);	/*verificar*/
+		Yn[netlist[i].a][nv+1]+=g;
+		g=(g*lastValues[netlist[i].b]);	/*verificar*/
+		Yn[netlist[i].b][nv+1]+=g;
 	}
 	else if (tipo=='%'){
 		double Qplus, Qminus;
@@ -794,8 +895,84 @@ int calculo(const char *caminho_netlist, Interface4Frame &frame, double i_tFinal
 		}
 		else
 			g=netlist[i].par3/deltaT;
+		Yn[netlist[i].c][netlist[i].c]+=g;
+		g=(g*lastValues[netlist[i].c]);	/*verificar*/
+		Yn[netlist[i].c][nv+1]+=g;
+
+		/*capacitores do reset*/
+		if (netlist[i].auxComp){
+			if (time==0.0){
+				if (operationPoint)
+					g=netlist[i].par3/1e10;
+				else
+					g=netlist[i].par3/1e-10;
+			}
+			else
+				g=netlist[i].auxComp->par2;
+			Yn[netlist[i].auxComp->a][netlist[i].auxComp->a]+=g;
+			Yn[netlist[i].auxComp->b][netlist[i].auxComp->b]+=g;
+			g=(g*lastValues[netlist[i].auxComp->a]);	/*verificar*/
+			Yn[netlist[i].auxComp->a][nv+1]+=g;
+			g=(g*lastValues[netlist[i].auxComp->b]);	/*verificar*/
+			Yn[netlist[i].auxComp->b][nv+1]+=g;
+		}
+	}
+
+	else if (tipo=='@'){/*monoestavel*/
+		double Qplus, Qminus;
+		if (i != (*curM).elNE){
+			frame.i_erro("Um error interno ocorreu\n");
+			exit(1);
+		}
+		if (lastValues[netlist[i].d] >= netlist[i].par1/2){
+			Qplus=0.0;
+			Qminus=netlist[i].par1;
+			(*curM).up=false;
+		}
+		if (!(*curM).up){
+			if ((lastValues[netlist[i].c]>=netlist[i].par1/2) &&
+					(lastLastValues[netlist[i].c] < netlist[i].par1/2)){
+					Qplus=netlist[i].par1;
+					Qminus=0.0;
+					(*curM).turnDown=time+netlist[i].par4;
+					(*curM).up=true;
+			}
+			else{
+				Qplus=0.0;
+				Qminus=netlist[i].par1;
+			}
+		}
+		else{
+			if (time-(*curM).turnDown > 0.0+deltaT*1e-5){
+				Qplus=0.0;
+				Qminus=netlist[i].par1;
+				(*curM).up=false;
+			}
+			else{
+				Qplus=netlist[i].par1;
+				Qminus=0.0;
+			}
+		}
+		g=1/netlist[i].par2;
 		Yn[netlist[i].a][netlist[i].a]+=g;
 		Yn[netlist[i].b][netlist[i].b]+=g;
+		Yn[netlist[i].a][nv+1]+=g*Qplus;
+		Yn[netlist[i].b][nv+1]+=g*Qminus;
+		/*acrescentar os capacitores para terra*/
+		if (time==0.0){
+			if (operationPoint)
+				g=netlist[i].par3/1e10;
+			else
+				g=netlist[i].par3/1e-10;
+		}
+		else
+			g=netlist[i].par3/deltaT;
+		Yn[netlist[i].c][netlist[i].c]+=g;
+		Yn[netlist[i].d][netlist[i].d]+=g;
+		g=(g*lastValues[netlist[i].c]);	/*verificar*/
+		g=(g*lastValues[netlist[i].d]);	/*verificar*/
+		Yn[netlist[i].d][nv+1]+=g;
+		curM=(*curM).next;
 	}
 
     else if (tipo=='E') {
@@ -852,19 +1029,12 @@ int calculo(const char *caminho_netlist, Interface4Frame &frame, double i_tFinal
     exit(1);
   }
 
-	for (j=1; j<nv; j++)			/*newton raphson*/
-	{
-		if (j==1)
-			frame.i_printf("\n\n%lg",Yn[j][nv+1]);
-		else
-			frame.i_printf(" %lg",Yn[j][nv+1]);
-
-		if (nrValues[j]!=Yn[j][nv+1]){
-			needNR=true;
-			nrValues[j]=Yn[j][nv+1];
-		}
-	}
-	frame.i_printf("\n");
+	if (maxNR > 1)
+		for (j=1; j<nv; j++)			/*newton raphson*/
+			if (nrValues[j]!=Yn[j][nv+1]){
+				needNR=true;
+				nrValues[j]=Yn[j][nv+1];
+			}
 
 	if (needNR)
 		goto newtonRaphson;
@@ -914,6 +1084,27 @@ int calculo(const char *caminho_netlist, Interface4Frame &frame, double i_tFinal
 					netlist[(*cur).elNE].par2=Yn[netlist[(*cur).elNE].x][nv+1];
 				cur=(*cur).next;
 			}
+			curD=firstD;
+			while (curD){
+				if (netlist[(*curD).elNE].par3-time < 0)
+					(*curD).internTimer+=deltaT;
+				if ((*curD).renovar && (((*curD).internTimer - (netlist[(*curD).elNE].par7-deltaT)*(1+netlist[(*curD).elNE].par8-
+					netlist[(*curD).elNE].par9)) >= timePrecision)){
+					(*curD).renovar=false;
+					netlist[(*curD).elNE].par9--;
+				}
+				curD=(*curD).next;
+			}
+			curS=firstS;
+			while(curS){
+				if ((*curS).curPer-time < 0.0-(deltaT*1e-5))
+					if (netlist[(*curS).elNE].par8 > 0){
+						netlist[(*curS).elNE].par8--;
+						(*curS).curPer+=(1/netlist[(*curS).elNE].par3);
+					}
+				curS=(*curS).next;
+			}
+
 			if (time>=deltaT)
 				for (i=0; i<nv; i++)
 					lastLastValues[i]=lastValues[i];
