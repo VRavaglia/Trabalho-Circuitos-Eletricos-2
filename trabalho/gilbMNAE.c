@@ -46,6 +46,7 @@ Os nos podem ser nomes
 #include <stdlib.h>
 #include <ctype.h>
 #include <math.h>
+#include <time.h>
 
 #define MAX_LINHA 80
 #define MAX_NOME 11
@@ -55,7 +56,7 @@ Os nos podem ser nomes
 #define STDDETAT 0.1
 /*#define NUMINTER 20*/
 #define PI 3.14159265359
-#define MAXNR 50					/*maximo de interacoes permitidas no 
+#define MAXNR 5					/*maximo de ciclos permitidos no 
 										newton-raphson*/
 
 typedef enum boolean {falso=0, verdadeiro} boolean;
@@ -189,16 +190,17 @@ int numero(char *nome)
 int main(int argc, char* argv[])
 {
 	int iTemp=0;											/*guarda o numero de interacoes no tempo*/
-	unsigned iNR=0,maxNR=0, j;	/*guarda o numero de interacoes 
+	unsigned iNR=0,maxNR=0,cicNR,j;	/*guarda o numero de interacoes 
 															newton raphson*/
-	double time,lastTime=0.0,tFinal=0.0,timePrecision;
+	double curTime,lastTime=0.0,tFinal=0.0,curTimePrecision;
 	tVarCell *first, *cur, *aux;
 	dDCell *firstD, *curD, *auxD, *earlier;
 	dSCell *firstS, *curS, *auxS;
 	mCell *firstM, *curM, *auxM;
 	char string[MAX_NOME+1],nomeTabela[MAX_NOME+1],icOpo[MAX_NOME+1];
-	double *nrValues,*lastValues,*lastLastValues;/*guarda os valores 
-																anteriores/ultima
+	double *nrValues,*lastNRValues,*lastValues,*lastLastValues;
+												/*guarda os valores 
+												anteriores/ultima
 												interacao para o uso do metodo a analise
 												de newton raphson respectivamente*/
 	boolean operationPoint=verdadeiro,needNR=falso;
@@ -209,9 +211,11 @@ int main(int argc, char* argv[])
 	firstM=(mCell *) NULL;
 
   /*clrscr();*/system("cls");
-  printf("Programa demonstrativo de analise nodal modificada\n");
-  printf("Por Antonio Carlos M. de Queiroz - acmq@coe.ufrj.br\n");
-  printf("Versao %s\n",versao);
+  printf("Programa de analise nodal modificada de elementos lineares\n");
+  printf("e nao lineares usando os metodos \"backward\" de Euler e de\n");
+  printf("Newton-Raphson.\n");
+  printf("Grupo: Mateus Gilbert, Patrick Franco e Victor Raposo\n");
+  printf("Periodo: 2018.2\n");
  denovo:
   /* Leitura do netlist */
   ne=0; nv=0; strcpy(lista[0],"0");
@@ -438,8 +442,8 @@ int main(int argc, char* argv[])
 		if (toupper(icOpo[0])=='S')
 			operationPoint=falso;
 	}
-	time=-deltaT;
-	timePrecision=deltaT/2;
+	curTime=-deltaT;
+	curTimePrecision=deltaT/2;
   /* Acrescenta variaveis de corrente acima dos nos, anotando no netlist */
   nn=nv;
   for (i=1; i<=ne; i++) {
@@ -520,6 +524,7 @@ int main(int argc, char* argv[])
   getch();
 
 	nrValues=(double *) malloc(sizeof(double)*(nv));
+	lastNRValues=(double *) malloc(sizeof(double)*(nv));
 	lastValues=(double *) malloc(sizeof(double)*(nv));
 	lastLastValues=(double *) malloc(sizeof(double)*(nv));
 
@@ -527,14 +532,14 @@ int main(int argc, char* argv[])
 		nrValues[i]=lastValues[i]=lastLastValues[i]=0.0;
 
 	buildSys:
-	time+=deltaT;
+	curTime+=deltaT;
 
 	curD=firstD;
 	while(curD){
-		if (((netlist[(*curD).elNE].par3) <= time) &&
+		if (((netlist[(*curD).elNE].par3) <= curTime) &&
 			!((*curD).triggered)){
 				(*curD).triggered=verdadeiro;
-				(*curD).internTimer=deltaT+(time-netlist[(*curD).elNE].par3);
+				(*curD).internTimer=deltaT+(curTime-netlist[(*curD).elNE].par3);
 		}
 		curD=(*curD).next;
 	}
@@ -542,9 +547,24 @@ int main(int argc, char* argv[])
 	newtonRaphson:
 	needNR=falso;
 
-	if (++iNR>MAXNR){
-		printf("Sistema não convergiu\n");
-		goto endProg;
+	if (maxNR > 1){
+		if (++iNR>maxNR){
+			if (cicNR<=MAXNR){
+				srand(time(NULL));
+				for (i=0; i<nv; i++)
+				if (lastNRValues[i]-nrValues[i] > 1e-7 ||
+				nrValues[i]-lastNRValues[i] > 1e-7 ){
+					nrValues[i]= (double) rand();
+					if (nrValues[i] > 1e7){
+						nrValues[i]/=1e7;
+					}
+				}
+			}
+			else{
+				printf("Sistema não convergiu\n");
+				goto endProg;
+			}
+		}
 	}
 
 
@@ -553,11 +573,11 @@ int main(int argc, char* argv[])
     for (j=0; j<=nv+1; j++)
       Yn[i][j]=0;
   }
-	if (time-lastTime<deltaT){
+	if (curTime-lastTime<deltaT){
 		if (lastTime==0.0)
-			time=lastTime;
+			curTime=lastTime;
 		else
-			time=(lastTime+deltaT);
+			curTime=(lastTime+deltaT);
 	}
   /* Monta estampas */
 	if (firstD) curD=firstD;
@@ -571,7 +591,7 @@ int main(int argc, char* argv[])
 		if (tipo=='R')
 			g=1/netlist[i].par1;
 		else{
-			if (time==0.0){
+			if (curTime==0.0){
 				if (operationPoint)
 					g=netlist[i].par1/1e10;
 				else
@@ -603,11 +623,11 @@ int main(int argc, char* argv[])
 					printf("Um error interno ocorreu\n");
 					exit(1);
 				}
-				if (time-netlist[i].par4 < 0.0|| netlist[i].par8 == 0)/*numCiclos*/
+				if (curTime-netlist[i].par4 < 0.0|| netlist[i].par8 == 0)/*numCiclos*/
 					g=netlist[i].par1;
 				else
 					g=netlist[i].par1+netlist[i].par2*(exp(-netlist[ne].par5*
-				(time-netlist[ne].par4)))*sin(2*PI*(netlist[i].par3)*(time-
+				(curTime-netlist[ne].par4)))*sin(2*PI*(netlist[i].par3)*(curTime-
 				netlist[ne].par4)-((PI/180)*netlist[i].par6));
 				curS=(*curS).next;
 				break;
@@ -617,20 +637,20 @@ int main(int argc, char* argv[])
 					exit(1);
 				}
 				g=0;
-				if (time-netlist[i].par3 >= 0.0 && netlist[i].par9>0){
-					double timeChecker=(*curD).internTimer-(netlist[i].par4+netlist[i].par7*(netlist[i].par8-netlist[i].par9));
-					if (timeChecker<timePrecision && timeChecker<-deltaT*1e-5)
+				if (curTime-netlist[i].par3 >= 0.0 && netlist[i].par9>0){
+					double curTimeChecker=(*curD).internTimer-(netlist[i].par4+netlist[i].par7*(netlist[i].par8-netlist[i].par9));
+					if (curTimeChecker<curTimePrecision && curTimeChecker<-deltaT*1e-5)
 						g=netlist[i].par1+(((*curD).internTimer-netlist[i].par7*(netlist[i].par8-netlist[i].par9))*
 							((netlist[i].par2-netlist[i].par1)/netlist[i].par4));
 					else{
-						timeChecker=(*curD).internTimer-(netlist[i].par4+netlist[i].par6+
+						curTimeChecker=(*curD).internTimer-(netlist[i].par4+netlist[i].par6+
 						netlist[i].par7*(netlist[i].par8-netlist[i].par9));
-						if (timeChecker<=(timePrecision+(deltaT*1e-5)))
+						if (curTimeChecker<=(curTimePrecision+(deltaT*1e-5)))
 							g=netlist[i].par2;
 						else{
-							timeChecker=(*curD).internTimer-(netlist[i].par4+netlist[i].par5+netlist[i].par6+
+							curTimeChecker=(*curD).internTimer-(netlist[i].par4+netlist[i].par5+netlist[i].par6+
 							netlist[i].par7*(netlist[i].par8-netlist[i].par9));
-							if (timeChecker<=(timePrecision+(deltaT*1e-5)))
+							if (curTimeChecker<=(curTimePrecision+(deltaT*1e-5)))
 									g=netlist[i].par2-(((*curD).internTimer-(netlist[i].par4+netlist[i].par6+netlist[i].par7*
 									(netlist[i].par8-netlist[i].par9)))*((netlist[i].par2-netlist[i].par1)/netlist[i].par5));
 							else
@@ -660,11 +680,11 @@ int main(int argc, char* argv[])
 						printf("Um error interno ocorreu\n");
 						exit(1);
 					}
-					if (time-netlist[i].par4 < 0.0 || netlist[i].par8 == 0)/*numCiclos*/
+					if (curTime-netlist[i].par4 < 0.0 || netlist[i].par8 == 0)/*numCiclos*/
 						g=netlist[i].par1;
 					else
 						g=netlist[i].par1+netlist[i].par2*(exp(-netlist[ne].par5*
-						(time-netlist[ne].par4)))*sin(2*PI*(netlist[i].par3)*(time-
+						(curTime-netlist[ne].par4)))*sin(2*PI*(netlist[i].par3)*(curTime-
 						netlist[ne].par4)-((PI/180)*netlist[i].par6));
 					curS=(*curS).next;
 					break;
@@ -673,20 +693,20 @@ int main(int argc, char* argv[])
 						printf("Um error interno ocorreu\n");
 						exit(1);
 					}
-					if (time-netlist[i].par3 >= 0.0 && netlist[i].par9>0){
-						double timeChecker=(*curD).internTimer-(netlist[i].par4+netlist[i].par7*(netlist[i].par8-netlist[i].par9));
-						if (timeChecker<timePrecision && timeChecker<-deltaT*1e-5)
+					if (curTime-netlist[i].par3 >= 0.0 && netlist[i].par9>0){
+						double curTimeChecker=(*curD).internTimer-(netlist[i].par4+netlist[i].par7*(netlist[i].par8-netlist[i].par9));
+						if (curTimeChecker<curTimePrecision && curTimeChecker<-deltaT*1e-5)
 							g=netlist[i].par1+(((*curD).internTimer-netlist[i].par7*(netlist[i].par8-netlist[i].par9))*
 								((netlist[i].par2-netlist[i].par1)/netlist[i].par4));
 						else{
-							timeChecker=(*curD).internTimer-(netlist[i].par4+netlist[i].par6+
+							curTimeChecker=(*curD).internTimer-(netlist[i].par4+netlist[i].par6+
 							netlist[i].par7*(netlist[i].par8-netlist[i].par9));
-							if (timeChecker<=(timePrecision+(deltaT*1e-5)))
+							if (curTimeChecker<=(curTimePrecision+(deltaT*1e-5)))
 								g=netlist[i].par2;
 							else{
-								timeChecker=(*curD).internTimer-(netlist[i].par4+netlist[i].par5+netlist[i].par6+
+								curTimeChecker=(*curD).internTimer-(netlist[i].par4+netlist[i].par5+netlist[i].par6+
 								netlist[i].par7*(netlist[i].par8-netlist[i].par9));
-								if (timeChecker<=(timePrecision+(deltaT*1e-5)))
+								if (curTimeChecker<=(curTimePrecision+(deltaT*1e-5)))
 										g=netlist[i].par2-(((*curD).internTimer-(netlist[i].par4+netlist[i].par6+netlist[i].par7*
 										(netlist[i].par8-netlist[i].par9)))*((netlist[i].par2-netlist[i].par1)/netlist[i].par5));
 								else
@@ -707,7 +727,7 @@ int main(int argc, char* argv[])
 				Yn[netlist[i].x][nv+1]-=g;
 		}
 		else{
-			if (time==0.0){
+			if (curTime==0.0){
 				if (operationPoint)
 					g=netlist[i].par1/1e10;
 				else
@@ -797,7 +817,7 @@ int main(int argc, char* argv[])
 		Yn[netlist[i].c][netlist[i].a]-=g*a1;			/*+?*/
 		Yn[netlist[i].c][netlist[i].b]-=g*a2;			/*+?*/
 		/*acrescentar os capacitores de entrada*/
-		if (time==0.0){
+		if (curTime==0.0){
 			if (operationPoint)
 				g=netlist[i].par3/1e10;
 			else
@@ -841,7 +861,7 @@ int main(int argc, char* argv[])
 					}
 				}
 			}
-			else if (time<deltaT){
+			else if (curTime<deltaT){
 				Qplus=0.0;
 				Qminus=netlist[i].par1;
 			}
@@ -852,7 +872,7 @@ int main(int argc, char* argv[])
 		Yn[netlist[i].a][nv+1]+=g*Qplus;
 		Yn[netlist[i].b][nv+1]+=g*Qminus;
 		/*acrescentar os capacitores para terra*/
-		if (time==0.0){
+		if (curTime==0.0){
 			if (operationPoint)
 				g=netlist[i].par3/1e10;
 			else
@@ -866,7 +886,7 @@ int main(int argc, char* argv[])
 
 		/*capacitores do reset*/
 		if (netlist[i].auxComp){
-			if (time==0.0){
+			if (curTime==0.0){
 				if (operationPoint)
 					g=netlist[i].par3/1e10;
 				else
@@ -899,7 +919,7 @@ int main(int argc, char* argv[])
 					(lastLastValues[netlist[i].c] < netlist[i].par1/2)){
 					Qplus=netlist[i].par1;
 					Qminus=0.0;
-					(*curM).turnDown=time+netlist[i].par4;
+					(*curM).turnDown=curTime+netlist[i].par4;
 					(*curM).up=verdadeiro;
 			}
 			else{
@@ -908,7 +928,7 @@ int main(int argc, char* argv[])
 			}
 		}
 		else{
-			if (time-(*curM).turnDown > 0.0+deltaT*1e-5){
+			if (curTime-(*curM).turnDown > 0.0+deltaT*1e-5){
 				Qplus=0.0;
 				Qminus=netlist[i].par1;
 				(*curM).up=falso;
@@ -924,7 +944,7 @@ int main(int argc, char* argv[])
 		Yn[netlist[i].a][nv+1]+=g*Qplus;
 		Yn[netlist[i].b][nv+1]+=g*Qminus;
 		/*acrescentar os capacitores para terra*/
-		if (time==0.0){
+		if (curTime==0.0){
 			if (operationPoint)
 				g=netlist[i].par3/1e10;
 			else
@@ -997,6 +1017,7 @@ int main(int argc, char* argv[])
 	if (maxNR > 1)
 		for (j=1; j<nv; j++)			/*newton raphson*/
 			if (nrValues[j]!=Yn[j][nv+1]){
+				lastNRValues[j]=nrValues[j];
 				needNR=verdadeiro;
 				nrValues[j]=Yn[j][nv+1];
 			}
@@ -1017,7 +1038,7 @@ int main(int argc, char* argv[])
   getch();
 #endif
   /* Salvar solucao */
-	if (time==0.0){
+	if (curTime==0.0){
 		for (i=1; i<=nv; i++) {
 			if(i==1)
 				fprintf(tabela, "%s", "t ");
@@ -1028,11 +1049,11 @@ int main(int argc, char* argv[])
 		}
   }
 	for (i=1; i<=nv; i++){
-		if (i==1) fprintf(tabela,"%g ",time);
+		if (i==1) fprintf(tabela,"%g ",curTime);
 		if (i!=nv)
 			fprintf(tabela,"%g ",Yn[i][nv+1]);
 		else{
-			if (time <= tFinal)
+			if (curTime <= tFinal)
 				fprintf(tabela,"%g\n",Yn[i][nv+1]);
 			else
 				fprintf(tabela,"%g",Yn[i][nv+1]);
@@ -1040,7 +1061,7 @@ int main(int argc, char* argv[])
 	}
   getch();
 	if (needBE)
-		if (time<=tFinal){
+		if (curTime<=tFinal){
 			cur=first;
 			while (cur){
 				if (netlist[(*cur).elNE].nome[0]=='C')
@@ -1051,10 +1072,10 @@ int main(int argc, char* argv[])
 			}
 			curD=firstD;
 			while (curD){
-				if (netlist[(*curD).elNE].par3-time < 0)
+				if (netlist[(*curD).elNE].par3-curTime < 0)
 					(*curD).internTimer+=deltaT;
 				if ((*curD).renovar && (((*curD).internTimer - (netlist[(*curD).elNE].par7-deltaT)*(1+netlist[(*curD).elNE].par8-
-					netlist[(*curD).elNE].par9)) >= timePrecision)){
+					netlist[(*curD).elNE].par9)) >= curTimePrecision)){
 					(*curD).renovar=falso;
 					netlist[(*curD).elNE].par9--;
 				}
@@ -1062,7 +1083,7 @@ int main(int argc, char* argv[])
 			}
 			curS=firstS;
 			while(curS){
-				if ((*curS).curPer-time < 0.0-(deltaT*1e-5))
+				if ((*curS).curPer-curTime < 0.0-(deltaT*1e-5))
 					if (netlist[(*curS).elNE].par8 > 0){
 						netlist[(*curS).elNE].par8--;
 						(*curS).curPer+=(1/netlist[(*curS).elNE].par3);
@@ -1070,13 +1091,13 @@ int main(int argc, char* argv[])
 				curS=(*curS).next;
 			}
 
-			if (time>=deltaT)
+			if (curTime>=deltaT)
 				for (i=0; i<nv; i++)
 					lastLastValues[i]=lastValues[i];
 			for (i=0; i<nv; i++)
 				lastValues[i]=nrValues[i];
 
-			lastTime=time;
+			lastTime=curTime;
 			goto buildSys;
 		}
 		else
