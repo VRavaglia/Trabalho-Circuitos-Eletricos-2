@@ -52,7 +52,7 @@ Os nos podem ser nomes
 #define MAX_NOME 11
 #define MAX_ELEM 500
 #define MAX_NOS 100
-#define TOLG 1e-15
+#define TOLG 1e-25
 #define STDDETAT 0.1
 /*#define NUMINTER 20*/
 #define PI 3.14159265359
@@ -593,10 +593,14 @@ int main(int argc, char* argv[])
 		else{
 			if (curTime==0.0){
 				if (operationPoint)
+					g=netlist[i].par1/(deltaT*1e10);
+				else
+					g=netlist[i].par1/(deltaT*1e-10);
+/*				if (operationPoint)
 					g=netlist[i].par1/1e10;
 				else
 					g=netlist[i].par1/1e-10;
-			}
+*/			}
 			else
 				g=netlist[i].par1/deltaT;		/*verificar*/
 		}
@@ -680,12 +684,11 @@ int main(int argc, char* argv[])
 						printf("Um error interno ocorreu\n");
 						exit(1);
 					}
-					if (curTime-netlist[i].par4 < 0.0 || netlist[i].par8 == 0)/*numCiclos*/
+					if ((curTime-netlist[i].par4 < (-deltaT*1e-5)) || netlist[i].par8 == 0)/*numCiclos*/
 						g=netlist[i].par1;
 					else
-						g=netlist[i].par1+netlist[i].par2*(exp(-netlist[ne].par5*
-						(curTime-netlist[ne].par4)))*sin(2*PI*(netlist[i].par3)*(curTime-
-						netlist[ne].par4)-((PI/180)*netlist[i].par6));
+						g=netlist[i].par1+(netlist[i].par2*(exp(-netlist[ne].par5*
+						(curTime-netlist[ne].par4)))*sin(2*PI*(netlist[i].par3)*(curTime-netlist[ne].par4)-((PI/180)*netlist[i].par6)));
 					curS=(*curS).next;
 					break;
 				case 'P':
@@ -729,9 +732,9 @@ int main(int argc, char* argv[])
 		else{
 			if (curTime==0.0){
 				if (operationPoint)
-					g=netlist[i].par1/1e10;
+					g=netlist[i].par1/(deltaT*1e10);
 				else
-					g=netlist[i].par1/1e-10;
+					g=netlist[i].par1/(deltaT*1e-10);
 			}
 			else
 				g=netlist[i].par1/deltaT;
@@ -1064,10 +1067,19 @@ int main(int argc, char* argv[])
 		if (curTime<=tFinal){
 			cur=first;
 			while (cur){
-				if (netlist[(*cur).elNE].nome[0]=='C')
-					netlist[(*cur).elNE].par2=Yn[netlist[(*cur).elNE].a][nv+1]-Yn[netlist[(*cur).elNE].b][nv+1];
-				else
+				if (netlist[(*cur).elNE].nome[0]=='C'){
+					if (netlist[(*cur).elNE].b==0)
+						netlist[(*cur).elNE].par2=Yn[netlist[(*cur).elNE].a][nv+1];
+					else
+						netlist[(*cur).elNE].par2=Yn[netlist[(*cur).elNE].a][nv+1]-Yn[netlist[(*cur).elNE].b][nv+1];
+/*					printf("%g-%g\n",Yn[netlist[((*cur).elNE)].a][nv+1],Yn[netlist[(*cur).elNE].b][nv+1]);
+					getchar();
+*/					}
+				else{
 					netlist[(*cur).elNE].par2=Yn[netlist[(*cur).elNE].x][nv+1];
+/*					printf("%g\n",Yn[netlist[(*cur).elNE].x][nv+1]);
+					getchar();*/
+					}
 				cur=(*cur).next;
 			}
 			curD=firstD;
