@@ -555,9 +555,8 @@ int main(int argc, char* argv[])
 				if (lastNRValues[i]-nrValues[i] > 1e-7 ||
 				nrValues[i]-lastNRValues[i] > 1e-7 ){
 					nrValues[i]= (double) rand();
-					if (nrValues[i] > 1e7){
-						nrValues[i]/=1e7;
-					}
+					if (nrValues[i] > 1e5)
+						nrValues[i]/=1e5;
 				}
 			}
 			else{
@@ -822,9 +821,9 @@ int main(int argc, char* argv[])
 		/*acrescentar os capacitores de entrada*/
 		if (curTime==0.0){
 			if (operationPoint)
-				g=netlist[i].par3/1e10;
+				g=netlist[i].par3/(deltaT*1e10);
 			else
-				g=netlist[i].par3/1e-10;
+				g=netlist[i].par3/(deltaT*1e-10);
 		}
 		else
 			g=netlist[i].par3/deltaT;
@@ -854,19 +853,30 @@ int main(int argc, char* argv[])
 			flipFlop:
 			if (lastValues[netlist[i].d] >= (netlist[i].par1/2)){
 				if (lastLastValues[netlist[i].d] <= (netlist[i].par1/2)){
-					if (lastValues[netlist[i].a]>0){
-						Qplus=0.0;
-						Qminus=netlist[i].par1;
-					}
-					else{
+					if ((lastValues[netlist[i].c]+1e-10) >= (netlist[i].par1/2)){
 						Qplus=netlist[i].par1;
 						Qminus=0.0;
 					}
+					else{
+						printf("Hi! My name is %i\n", netlist[i].d);//getchar();
+						Qplus=0.0;
+						Qminus=netlist[i].par1;
+					}
 				}
 			}
-			else if (curTime<deltaT){
+			else if (curTime<=0.0){
 				Qplus=0.0;
 				Qminus=netlist[i].par1;
+			}
+			else{
+				if ((lastValues[netlist[i].a]-1e-10)>(netlist[i].par1/2)){
+					Qplus=netlist[i].par1;
+					Qminus=0.0;
+				}
+				else{
+					Qplus=0.0;
+					Qminus=netlist[i].par1;
+				}
 			}
 		}
 		g=1/netlist[i].par2;
@@ -877,23 +887,35 @@ int main(int argc, char* argv[])
 		/*acrescentar os capacitores para terra*/
 		if (curTime==0.0){
 			if (operationPoint)
-				g=netlist[i].par3/1e10;
+				g=netlist[i].par3/(deltaT*1e10);
 			else
-				g=netlist[i].par3/1e-10;
+				g=netlist[i].par3/(deltaT*1e-10);
 		}
 		else
 			g=netlist[i].par3/deltaT;
 		Yn[netlist[i].c][netlist[i].c]+=g;
+		Yn[netlist[i].d][netlist[i].d]+=g;
 		g=(g*lastValues[netlist[i].c]);	/*verificar*/
 		Yn[netlist[i].c][nv+1]+=g;
+		if (curTime==0.0){
+			if (operationPoint)
+				g=netlist[i].par3/(deltaT*1e10);
+			else
+				g=netlist[i].par3/(deltaT*1e-10);
+		}
+		else
+			g=netlist[i].par3/deltaT;
+		g=(g*lastValues[netlist[i].d]);/*verificar capacitores para 
+													entrada clock*/
+		Yn[netlist[i].d][nv+1]+=g;
 
 		/*capacitores do reset*/
 		if (netlist[i].auxComp){
 			if (curTime==0.0){
 				if (operationPoint)
-					g=netlist[i].par3/1e10;
+					g=netlist[i].par3/(deltaT*1e10);
 				else
-					g=netlist[i].par3/1e-10;
+					g=netlist[i].par3/(deltaT*1e-10);
 			}
 			else
 				g=netlist[i].auxComp->par2;
@@ -949,9 +971,9 @@ int main(int argc, char* argv[])
 		/*acrescentar os capacitores para terra*/
 		if (curTime==0.0){
 			if (operationPoint)
-				g=netlist[i].par3/1e10;
+				g=netlist[i].par3/(deltaT*1e10);
 			else
-				g=netlist[i].par3/1e-10;
+				g=netlist[i].par3/(deltaT*1e-10);
 		}
 		else
 			g=netlist[i].par3/deltaT;
@@ -1017,13 +1039,20 @@ int main(int argc, char* argv[])
     exit(1);
   }
 
-	if (maxNR > 1)
+	if (maxNR > 1){
 		for (j=1; j<nv; j++)			/*newton raphson*/
 			if (nrValues[j]!=Yn[j][nv+1]){
 				lastNRValues[j]=nrValues[j];
 				needNR=verdadeiro;
 				nrValues[j]=Yn[j][nv+1];
 			}
+	}
+	else{
+		for (j=1; j<nv; j++){
+			lastLastValues[j]=lastValues[j];
+			lastValues[j]=Yn[j][nv+1];
+		}
+	}
 
 	if (needNR)
 		goto newtonRaphson;
@@ -1103,11 +1132,38 @@ int main(int argc, char* argv[])
 				curS=(*curS).next;
 			}
 
-			if (curTime>=deltaT)
+/*			printf("%g\n",deltaT);
+			printf("\n<%g>\n",curTime);
+			for (i=0; i<nv; i++)
+				printf("[%g]",lastLastValues[i]);
+			printf("\n");
+			for (i=0; i<nv; i++)
+				printf("[%g]",lastValues[i]);
+			printf("\n");
+			getchar();*/
+
+/*			if (curTime>=deltaT){
 				for (i=0; i<nv; i++)
 					lastLastValues[i]=lastValues[i];
+			}*/
+
+			if (maxNR>1){
+				for (i=0; i<nv; i++)
+					lastLastValues[i]=lastValues[i];
+					lastValues[i]=nrValues[i];
+			}
+/*			else{
+				for (i=0; i<nv; i++)
+					lastLastValues[i]=lastValues[i];
+					lastValues[i]=Yn[i][nv+1];
+			}
+*/
+/*			for (i=0; i<nv; i++)
+				printf("[%g]",lastLastValues[i]);
+			printf("\n");
 			for (i=0; i<nv; i++)
-				lastValues[i]=nrValues[i];
+				printf("[%g]",lastValues[i]);
+			printf("\n");*/
 
 			lastTime=curTime;
 			goto buildSys;
