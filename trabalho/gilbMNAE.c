@@ -91,6 +91,12 @@ typedef struct dSCell{	/*guarda o numero da fonte senoidal*/
 	struct dSCell *next;
 } dSCell;
 
+typedef struct ffCell{	/*usado apenas pelo flip-flop*/
+	int elNE;
+	boolean high;
+	struct ffCell *next;
+}ffCell;
+
 typedef struct mCell{	/*guarda quando o monoestavel deve ser desligado*/
 	int elNE;
 	double turnDown;
@@ -197,6 +203,7 @@ int main(int argc, char* argv[])
 	dDCell *firstD, *curD, *auxD, *earlier;
 	dSCell *firstS, *curS, *auxS;
 	mCell *firstM, *curM, *auxM;
+	ffCell *firstFF, *curFF, *auxFF;
 	char string[MAX_NOME+1],nomeTabela[MAX_NOME+1],icOpo[MAX_NOME+1];
 	double *nrValues,*lastNRValues,*lastValues,*lastLastValues;
 												/*guarda os valores 
@@ -209,6 +216,7 @@ int main(int argc, char* argv[])
 	firstD=(dDCell *) NULL;
 	firstS=(dSCell *) NULL;
 	firstM=(mCell *) NULL;
+	firstFF=(ffCell *) NULL;
 
   /*clrscr();*/system("cls");
   printf("Programa de analise nodal modificada de elementos lineares\n");
@@ -359,6 +367,17 @@ int main(int argc, char* argv[])
 		sscanf(p,"%10s%10s%10s%10s%10s%lg%lg%lg",na,nb,nc,nd,
 				auxComp,&netlist[ne].par1,&netlist[ne].par2,
 				&netlist[ne].par3);
+		curFF = (ffCell *) malloc(sizeof(ffCell));
+		(*curFF).elNE=ne;
+		(*curFF).next=(ffCell *) NULL;
+		(*curFF).high=falso;
+		if (!firstFF) firstFF=curFF;
+		else{
+			auxFF=firstFF;
+			while((*auxFF).next) auxFF=(*auxFF).next;
+			(*auxFF).next=curFF;
+		}
+		curFF=firstFF;
 		printf("%s %s %s %s %s %g %g %g\n",netlist[ne].nome,na,nb,nc,nd,
 				auxComp,netlist[ne].par1,netlist[ne].par2,
 				netlist[ne].par3);
@@ -376,6 +395,7 @@ int main(int argc, char* argv[])
 		sscanf(p,"%10s%10s%10s%10s%lg%lg%lg%lg",na,nb,nc,nd,
 				&netlist[ne].par1,&netlist[ne].par2,&netlist[ne].par3,
 				&netlist[ne].par4);
+		curM = (mCell *) malloc(sizeof(mCell));
 		(*curM).elNE=ne;
 		(*curM).next=(mCell *) NULL;
 		(*curM).up=falso;
@@ -582,6 +602,7 @@ int main(int argc, char* argv[])
 	if (firstD) curD=firstD;
 	if (firstS) curS=firstS;
 	if (firstM) curM=firstM;
+	if (firstFF) curFF=firstFF;
 
   for (i=1; i<=ne; i++) {
 
@@ -836,32 +857,39 @@ int main(int argc, char* argv[])
 	}
 	else if (tipo=='%'){
 		double Qplus, Qminus;
+		if (i != (*curFF).elNE){
+			printf("Um error interno ocorreu\n");
+			exit(1);
+		}
 		if (netlist[i].auxComp){
 			if (lastValues[netlist[i].auxComp->b] >=
 				(netlist[i].auxComp->par1/2)){
 					Qplus=0.0;
 					Qminus=netlist[i].par1;
+					(*curFF).high=falso;
 			}
 			else if (lastValues[netlist[i].auxComp->a] >=
 						(netlist[i].auxComp->par1/2)){
 					Qminus=0.0;
 					Qplus=netlist[i].par1;
+					(*curFF).high=verdadeiro;
 			}
 			else goto flipFlop;
 		}
 		else{
 			flipFlop:
-			if (lastValues[netlist[i].d] >= (netlist[i].par1/2)){
-				if (lastLastValues[netlist[i].d] <= (netlist[i].par1/2)){
-					if ((lastValues[netlist[i].c]+1e-10) >= (netlist[i].par1/2)){
-						Qplus=netlist[i].par1;
-						Qminus=0.0;
-					}
-					else{
-						printf("Hi! My name is %i\n", netlist[i].d);//getchar();
-						Qplus=0.0;
-						Qminus=netlist[i].par1;
-					}
+			if ((lastValues[netlist[i].d] >= (netlist[i].par1/2)) &&
+				(lastLastValues[netlist[i].d] <= (netlist[i].par1/2))){
+				if ((lastValues[netlist[i].c]+1e-10) >= (netlist[i].par1/2)){
+					(*curFF).high=verdadeiro;
+//						Qplus=netlist[i].par1;
+//						Qminus=0.0;
+				}
+				else{
+					(*curFF).high=falso;
+//						printf("Hi! My name is %i\n", netlist[i].d);//getchar();
+//						Qplus=0.0;
+//						Qminus=netlist[i].par1;
 				}
 			}
 			else if (curTime<=0.0){
@@ -869,7 +897,7 @@ int main(int argc, char* argv[])
 				Qminus=netlist[i].par1;
 			}
 			else{
-				if ((lastValues[netlist[i].a]-1e-10)>(netlist[i].par1/2)){
+				if ((*curFF).high){
 					Qplus=netlist[i].par1;
 					Qminus=0.0;
 				}
@@ -926,6 +954,7 @@ int main(int argc, char* argv[])
 			g=(g*lastValues[netlist[i].auxComp->b]);	/*verificar*/
 			Yn[netlist[i].auxComp->b][nv+1]+=g;
 		}
+		curFF=(*curFF).next;
 	}
 
 	else if (tipo=='@'){/*monoestavel*/
