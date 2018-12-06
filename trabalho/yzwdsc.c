@@ -216,6 +216,7 @@ int main(int argc, char* argv[])
 	firstD=(dDCell *) NULL;
 	firstS=(dSCell *) NULL;
 	firstM=(mCell *) NULL;
+	firstFF=(ffCell *) NULL;
 
   /*clrscr();*/system("cls");
   printf("Programa de analise nodal modificada de elementos lineares\n");
@@ -846,7 +847,10 @@ int main(int argc, char* argv[])
 			if (operationPoint)
 				g=netlist[i].par3/1e10;
 			else
-				g=netlist[i].par3/1e-10;
+				if (deltaT<1e-8)
+					g=netlist[i].par3/(deltaT*1e-10);
+				else
+					g=netlist[i].par3/1e-10;
 		}
 		else
 			g=netlist[i].par3/deltaT;
@@ -926,6 +930,20 @@ int main(int argc, char* argv[])
 		Yn[netlist[i].d][netlist[i].d]+=g;
 		g=(g*lastValues[netlist[i].c]);	/*verificar*/
 		Yn[netlist[i].c][nv+1]+=g;
+		if (curTime==0.0){
+			if (operationPoint)
+					g=netlist[i].par3/1e10;
+			else{
+				if (deltaT<1e-8)
+					g=netlist[i].par3/(deltaT*1e-10);
+				else
+					g=netlist[i].par3/1e-10;
+			}
+		}
+		else
+			g=netlist[i].par3/deltaT;
+		g=(g*lastValues[netlist[i].d]);
+		Yn[netlist[i].d][nv+1]+=g;
 
 		/*capacitores do reset*/
 		if (netlist[i].auxComp){
@@ -1066,12 +1084,19 @@ int main(int argc, char* argv[])
     exit(1);
   }
 
-	if (maxNR > 1)
+	if (maxNR > 1){
 		for (j=1; j<nv; j++)			/*newton raphson*/
 			if (nrValues[j]!=Yn[j][nv+1]){
 				lastNRValues[j]=nrValues[j];
 				needNR=verdadeiro;
 				nrValues[j]=Yn[j][nv+1];
+			}
+	}
+			else{
+				for (j=1;j<nv;j++){
+					lastLastValues[j]=lastValues[j];
+					lastValues[j]=Yn[j][nv+1];
+				}
 			}
 
 	if (needNR)
@@ -1158,12 +1183,12 @@ int main(int argc, char* argv[])
 					lastLastValues[i]=nrValues[i];
 				}
 			}
-			else{
-				for (j=1;j<nv;j++){
-					lastLastValues[j]=lastValues[j];
-					lastValues[j]=Yn[j][nv+1];
-				}
-			}
+//			else{
+//				for (j=1;j<nv;j++){
+//					lastLastValues[j]=lastValues[j];
+//					lastValues[j]=Yn[j][nv+1];
+//				}
+//			}
 
 			if (curTime>=deltaT)
 				for (i=0; i<nv; i++)
